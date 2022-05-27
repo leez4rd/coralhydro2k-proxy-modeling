@@ -3,11 +3,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Apr 20 09:28:13 2021
 
-@author: alyssaatwood
+@author: alyssaatwood & lee
 """
-
+import sys
 import pandas as pd
 import numpy as np
 from numpy import linalg as LA
@@ -33,7 +32,7 @@ def decyrs_to_datetime(decyrs):      # converts date in decimal years to a datet
         base = datetime(year, 1, 1)
         result = base + timedelta(seconds=(base.replace(year=base.year + 1) - base).total_seconds() * rem)
         result2 = result.strftime("%Y-%m-%d")   # truncate to just keep YYYY-MM-DD (get rid of hours, secs, and minutes)
-        ##print(l, result2)
+        ###print(l, result2)
         output[l] = np.datetime64(result2)
     return output
 
@@ -91,7 +90,7 @@ def bls(X, varX, Y, varY, tol=1e-5, verbose=False, PC=False):
       
    Z = np.hstack((Ra[:, 1:], Y)) 
    bnew = tls(Z)
-   # #print(bnew)
+   # ##print(bnew)
    b = np.zeros((bnew.shape[0], 1)) 
    Rt = Ra.T
    varRt = varR.T
@@ -153,30 +152,50 @@ then we need to find a way to color that point according to a2 value
 # Define analysis interval
 time_step = 'year'
 #time_step = 'bimonthly'
-
+'''
 f = h5py.File('hydro2kv0_5_2.mat','r')
-data1 = f.get('ch2k/'+coralid1+'/d18O')
-
 dataset = f.get('ch2k/')
-coralnames = list(dataset.keys())
+coralnames = list(dataset.keys()) #last key here is 'version'? 
 
-timec01 = np.array(data1[0,:])-1/24     # time in fractional year CE (subtract 1/24 so that time corresponds to start of month (as with sst datasets), rather than mid-month)
-d18Oc1 = np.array(data1[1,:])           # Convert to NumPy array
+
+for recordID in coralnames:
+	current_record = f.get('ch2k/'+recordID+'/d18O')
+	try:
+		# do everything the code below does for one coral record, for all of them
+		# or at least the regression part, but I don't know what depends on what yet  
+		for data in current_record:
+			
+	except: 
+		#print("Data is Nonetype, ignoring...")
+
+'''
+f = h5py.File('hydro2kv0_5_2.mat','r')
+if len(sys.argv) > 1:
+    #print(sys.argv[1])
+    recordID = str(sys.argv[1])
+    #print(recordID)
+    current_record = f.get('ch2k/'+recordID+'/d18O')
+else:
+    #print("exiting...")
+    exit(0)
+
+timec01 = np.array(current_record[0,:])-1/24     # time in fractional year CE (subtract 1/24 so that time corresponds to start of month (as with sst datasets), rather than mid-month)
+d18Oc1 = np.array(current_record[1,:])           # Convert to NumPy array
 timec1 = decyrs_to_datetime(timec01)    # convert time from decimal year YYYY.FF to datetime object (YYYY-MM-DD)
 nt = len(timec1)
 
 # Analytic error in d18Oc (assumes the values are in per mille!)
-data_analerr = f.get('ch2k/'+coralid1+'/d18O_errAnalytic')
+data_analerr = f.get('ch2k/'+recordID+'/d18O_errAnalytic')
 d18Oc_analerr = data_analerr[0,:]      # analytical error is a single value (in per mille)
 
 
 # Round time steps to nearest month (just a couple days off in some months)
 timec1mo = round_nearest_month(timec1)
 
-'''
-not going to worry about merging local records yet
-if 'coralid2' in locals():                  # if a second coral id (coralid2) exixts, merge the two data sets
-    data2 = f.get('ch2k/'+coralid2+'/d18O')
+
+# merging records -- ignoring this for now
+if False: #'recordID' in locals():                  # if a second coral id (coralid2) exixts, merge the two data sets
+    data2 = f.get('ch2k/'+recordID+'/d18O')
     timec02 = np.array(data2[0,:])          # time in fractional year CE
     d18Oc2 = np.array(data2[1,:])           # Convert to NumPy array
     timec2 = decyrs_to_datetime(timec02)    # convert time from decimal year YYYY.FF to datetime object (YYYY-MM-DD)
@@ -188,22 +207,22 @@ if 'coralid2' in locals():                  # if a second coral id (coralid2) ex
 else:
     timec = timec1mo
     d18Oc = d18Oc1
-''' 
+
 
 
 # Create DataArray object by specifying coordinates and dimension names (xarray) from numpy array
-d18Oc = xr.DataArray(d18Oc, coords=[timec], dims=["time"])
+d18Oc = xr.DataArray(d18Oc, coords=[timec1mo], dims=["time"])
 d18Oc = d18Oc.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
 
 d18Oc = d18Oc.sortby(d18Oc.time,ascending=True)                   # sort arrays by time
 timec = d18Oc.time
 
 
-latc = f.get('ch2k/'+coralid1+'/lat')
-lonc = f.get('ch2k/'+coralid1+'/lon')  # lon = -180:180
+latc = f.get('ch2k/'+recordID+'/lat')
+lonc = f.get('ch2k/'+recordID+'/lon')  # lon = -180:180
 latc = np.array(latc)                 # Convert to NumPy array
 lonc = np.array(lonc)                 # Convert to NumPy array
-#print(latc, lonc)
+##print(latc, lonc)
 
 #============================================================================
 # Read in obs SST and uncertainty data
@@ -221,7 +240,7 @@ lonc = np.array(lonc)                 # Convert to NumPy array
 
 dir = ''
 ds = xr.open_dataset(dir+'sst_mnmean_noaa_ersstv5.nc',decode_times=True)         # ERSST v5
-#print(ds)
+##print(ds)
 
 # Change longitude array from 0:360 to -180:180
 lon_name = 'lon'  # whatever name is in the data
@@ -234,7 +253,7 @@ ds = (
     .sel(**{'_longitude_adjusted': sorted(ds._longitude_adjusted)})
     .drop(lon_name))
 ds = ds.rename({'_longitude_adjusted': lon_name})
-#print(ds)
+##print(ds)
 
 # Read in variables
 sst_all = ds['sst']
@@ -243,21 +262,21 @@ lat_sst_all = sst_all['lat'].values   # get coordinates from dataset
 lon_sst_all = sst_all['lon'].values   # lon = 0:360
 #years = sst_all['time'].values
 #nt , ny, nx = sst_all.shape
-##print(years)
-#print(time_sst_all)
-#print(type(time_sst_all))
+###print(years)
+##print(time_sst_all)
+##print(type(time_sst_all))
 
 # Get indices and sst data at closest grid point to coral
 (indlat_sst, latval_sst) = find_nearest(lat_sst_all, latc)
 (indlon_sst, lonval_sst) = find_nearest(lon_sst_all, lonc)
 #(indtime_sst, timeval_sst) = find_nearest(time_sst_all , timec[0])   # coral data steps on midpoints, sst data steps on first day of month... find closest time in sst data set to start of coral data
 sst_f = sst_all[:,indlat_sst,indlon_sst]
-#print(latval_sst)
-#print(timec[0])
+##print(latval_sst)
+##print(timec[0])
 
 # Match ages of SST and SSS data to coral data
 #sst_final = sst.sel(time = timec, method='nearest')
-#print(sst_f)
+##print(sst_f)
 
 #============================================================================
 # Read in ERSSTv5 uncertainties 
@@ -274,7 +293,7 @@ ds = (
     .sel(**{'_longitude_adjusted': sorted(ds._longitude_adjusted)})
     .drop(lon_name))
 ds = ds.rename({'_longitude_adjusted': lon_name})
-#print(ds)
+##print(ds)
 
 sster_all = ds['ut']
 time_sster_all = ds['time']             # ERSSTv5: time (1/1854-12/2020; units = "days since 1800-1-1 00:00:00")
@@ -284,11 +303,11 @@ lon_sster_all = sster_all['longitude'].values
 (indlat_sster, latval_sster) = find_nearest(lat_sster_all, latc)
 (indlon_sster, lonval_sster) = find_nearest(lon_sster_all, lonc)
 sster_f = sster_all[:,indlat_sster,indlon_sster]
-#print(time_sster_all)
+##print(time_sster_all)
 
 # Match ages of SST and SSS data to coral data
 #sster_final = sster.sel(time = timec, method='nearest')
-#print(sster_f)
+##print(sster_f)
 
 #============================================================================
 # Read in obs SSS and uncertainty data
@@ -297,12 +316,12 @@ sster_f = sster_all[:,indlat_sster,indlon_sster]
 #dir = '/Users/alyssa_atwood/Desktop/Dropbox/Obs_datasets/Salinity/HadEN4/'
 dir = ''
 ds = xr.open_dataset(dir+'sss_HadleyEN4.2.1g10_190001-201012.nc',decode_times=True)         # ERSST v5
-#print(ds)
+##print(ds)
 sss_all = ds['sss']
 time_sss_all = ds['time']             # HadEN4: time x lat x lon (time = 1900:2010)
 lat_sss_all = sss_all['lat'].values   # get coordinates from dataset
 lon_sss_all = sss_all['lon'].values
-#print(time_sss_all)
+##print(time_sss_all)
 
 # Get indices and sst data at closest grid point to coral
 (indlat_sss, latval_sss) = find_nearest(lat_sss_all, latc)
@@ -311,7 +330,7 @@ sss_f = sss_all[:,indlat_sss,indlon_sss]
 
 # Match ages of SST and SSS data to coral data
 #sss_final = sss.sel(time = timec, method='nearest')
-#print(sss_f)
+##print(sss_f)
 
 #============================================================================
 # Read in HadEN4 uncertainties 
@@ -328,7 +347,7 @@ ssser_all = xr.DataArray(ssser_all[:,0,:,:], coords=[time_ssser_all,lat_ssser_al
 (indlat_ssser, latval_ssser) = find_nearest(lat_ssser_all, latc)
 (indlon_ssser, lonval_ssser) = find_nearest(lon_ssser_all, lonc)
 ssser_f = ssser_all[:,indlat_ssser,indlon_ssser]
-#print(time_ssser_all)
+##print(time_ssser_all)
 
 # Avg data over the tropical year (Apr 1 - Mar 31) (Verified data for HE18COC01)
 coral_years = np.array(d18Oc.time.dt.year)   # array of years in coral data
@@ -344,7 +363,7 @@ coral_years = np.array(d18Oc.time.dt.year)   # array of years in coral data
 startyr = 1980           # start on a specified year
 endyr = coral_years[-1]
 nyr = endyr-startyr      # set the last year for the tropical averages as the final year of coral data
-#print(nyr)
+##print(nyr)
 
 # Truncate data to min/max of overlapping ages of all data sets
 #t1 = max(d18Oc.time[0],sst_final.time[0],sss_final.time[0],sster_final.time[0],ssser_final.time[0])       # find latest start date of all data sets
@@ -391,6 +410,7 @@ ssser_f = ssser_f.sel(time=slice(t1, t2))
 #d18Oc_dt1 = signal.detrend(d18Oc)
 #sst_dt1 = signal.detrend(sst_final)
 #sss_dt1 = signal.detrend(sss_final)
+
 
 # Detrend the SST, SSS, and d18Oc data, but retain the intercept (so just remove the trend but the values aren't centered around 0)
 time_d18Oc = d18Oc.time.dt.year+d18Oc.time.dt.month/12-1/24 - d18Oc.time.dt.year[0]       # subtract the first year so the intercept is defined at start year 
@@ -645,7 +665,7 @@ varX[:,1] = np.square(ssser_final)
 # idk about error though ...
 [a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, sster_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
 
-
+print(a4)
 #============================================================================
 # Regression Plots
 #============================================================================
@@ -667,8 +687,8 @@ axis[1].set_xlabel('SSS (%)')
 axis[1].set_ylabel('Coral $\delta^{18}$O ($\perthousand$) plus SST term')
 axis[1].legend(fontsize=8)
 
-plt.savefig(coralid1+'_wls.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_wls.pdf', bbox_inches='tight')
+#plt.show()
 
 # SST vs SSS
 plt.plot(sss_final, sst_final, 'o', label = 'original data', color='k')
@@ -676,8 +696,8 @@ plt.plot(sss_final, a3 + b3*sss_final, 'b', label="SST = {0:.3f}*SSS + {1:.2f}".
 plt.xlabel('SSS (%)')
 plt.ylabel('SST (°C)')
 plt.legend(fontsize=8)
-plt.savefig(coralid1+'_SSTvsSSS.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_SSTvsSSS.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Time Series Plots
@@ -703,8 +723,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SST and d18Oc (raw)')
-plt.savefig(coralid1+'_sst_ts_raw.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sst_ts_raw.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 2: Raw SSS and d18Oc
@@ -727,8 +747,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SSS and d18Oc (raw)')
-plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sss_ts_raw.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 3: Bimonthly SST and d18Oc
@@ -750,8 +770,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SST and d18Oc (bimonthly binned)')
-plt.savefig(coralid1+'_sst_ts.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sst_ts.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 4: Detrended SST and d18Oc
@@ -774,8 +794,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SST and d18Oc (detrended)')
-plt.savefig(coralid1+'_sst_detrend_ts.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sst_detrend_ts.pdf', bbox_inches='tight')
+#plt.show()
 
 
 #============================================================================
@@ -800,8 +820,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SSS and d18Oc (bimonthly binned)')
-plt.savefig(coralid1+'_sss_ts.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sss_ts.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 6: Yearly avg'd SST
@@ -824,8 +844,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SST and d18Oc (trop year avg)')
-plt.savefig(coralid1+'_sstyr_ts.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sstyr_ts.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 7: Yearly avg'd SSS
@@ -849,8 +869,8 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SSS and d18Oc (trop year avg)')
-plt.savefig(coralid1+'_sssyr_ts.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_sssyr_ts.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 8: Trend in SST
@@ -862,8 +882,8 @@ plt.xlabel('year from start yr')
 plt.ylabel('SST')
 plt.title('Trend in SST')
 plt.legend()
-plt.savefig(coralid1+'_trend_sst.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_trend_sst.pdf', bbox_inches='tight')
+#plt.show()
 
 #============================================================================
 # Plot 9: Trend in SSS
@@ -875,5 +895,5 @@ plt.xlabel('year from start yr')
 plt.ylabel('SSS')
 plt.title('Trend in SSS')
 plt.legend()
-plt.savefig(coralid1+'_trend_sss.pdf', bbox_inches='tight')
-plt.show()
+#plt.savefig(recordID+'_trend_sss.pdf', bbox_inches='tight')
+#plt.show()

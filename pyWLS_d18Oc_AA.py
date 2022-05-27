@@ -6,6 +6,7 @@ Created on Tue Apr 20 09:28:13 2021
 @author: alyssaatwood
 """
 
+
 import pandas as pd
 import numpy as np
 from numpy import linalg as LA
@@ -151,7 +152,17 @@ def detrend_dim(da, dim, deg=1):
 #============================================================================
 
 #more salinity variation 
+#coralid1 = 'AB15BHB01'
+# why does this coral record generate a nan slope ? 
 coralid1 = 'CO95TUNG01A'
+#this one generates another error
+
+'''
+CO95TUNG01A
+CO14OSPA02A
+CO03CHBA01A
+
+'''
 
 # *** Re-organize this data for iterability *** #
 
@@ -193,9 +204,11 @@ time_step = 'year'
 #time_step = 'bimonthly'
 
 #dir = '/Users/alyssaatwood/Dropbox/Florida_State/Research/Research_projects/CoralHydro2k/Coral_database/'
-f = h5py.File('hydro2kv0_5_2.mat','r')
+f = h5py.File('hydro2kv0_5_2(1).mat','r')
 data1 = f.get('ch2k/'+coralid1+'/d18O')
 
+print(f.get('ch2k/' + coralid1))
+print(data1)
 dataset = f.get('ch2k/')
 coralnames = list(dataset.keys())
 
