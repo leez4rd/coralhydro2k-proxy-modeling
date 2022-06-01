@@ -27,7 +27,10 @@ import os
 from datetime import datetime
 import cftime
 
-sys.stderr = open(os.devnull, "w")
+# sys.stderr = open(os.devnull, "w") # display error output 
+
+# show arrays or not
+PRINT_STUFF = True 
 
 
 def decyrs_to_datetime(decyrs):      # converts date in decimal years to a datetime object (from https://stackoverflow.com/questions/20911015/decimal-years-to-datetime-in-python)
@@ -90,6 +93,21 @@ def round_nearest_month(values):      # rounds a numpy datetime64 array to the n
     output = df_array[:,0]       # remove singleton dimension
     return output
 '''
+
+# Loosely based off: https://community.alteryx.com/t5/Alteryx-Designer-Discussions/Round-a-date-to-the-nearest-month/td-p/624262
+def round_nearest_month(values):      # rounds a numpy datetime64 array to the nearest month (1st of the nearest month)
+    dat = {'date': values}
+    df = pd.DataFrame(data=dat)
+    d = df['date'].dt.day
+    for i in range(len(d)):
+        if d[i] > 15:
+            df.date[i] = pd.to_datetime(df.at[i, 'date']) + MonthBegin(1)   # ceiling month
+        else:
+            df.date[i] = df.date[i] - pd.Timedelta('1 day') * (df.date.dt.day[i] - 1)  # floor month
+            #df.date = df.index.floor('M')
+    df_array = np.array(df)        # converts pandas dataframe back to numpy array
+    output = df_array[:,0]       # remove singleton dimension
+    return output
 
 
 def find_nearest(array, value):
@@ -234,7 +252,7 @@ else:
     # coralid1 = 'ST13MAL01' 
 
     # error sleuthing
-    coralid1 = 'AB08MEN01'
+    # coralid1 = 'AB08MEN01'
     # coralid1 = 'CA13PEL01' # undiagnosed nan error
 
 
@@ -244,9 +262,8 @@ else:
     # this one generates a shape error 
     # coralid1 = 'CA13TUR01'
 
-    # this one's fine
-    # coralid1 = 'HE18COC01'
-    # coralid1 = 'ZI08MAY01'
+    # coralid1 = 'HE18COC01' # used to be fine, now generating error 
+    coralid1 = 'ZI08MAY01'
     # this one gives us "nonetype is not iterable" which means it isn't finding the ID in the data
     # coralid1 = 'CO95TUNG01A'
 
@@ -301,7 +318,10 @@ else:
 # create DataArray object by specifying coordinates and dimension names (xarray) from numpy array
 
 d18Oc = xr.DataArray(d18Oc, coords=[timec], dims=["time"])
+d18Oc = d18Oc.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
 
+d18Oc = d18Oc.sortby(d18Oc.time,ascending=True)                   # sort arrays by time
+timec = d18Oc.time
 
 
 
@@ -331,11 +351,11 @@ ds = (
     .sel(**{'_longitude_adjusted': sorted(ds._longitude_adjusted)})
     .drop(lon_name))
 ds = ds.rename({'_longitude_adjusted': lon_name})
-ds = ds.dropna(dim = "lat", how = "any")
+# ds = ds.dropna(dim = "lat", how = "any")
 
 # Read in variables
 sst_all = ds['sst']
-
+# print(sst_all.values)
 time_sst_all = ds['time']             # ERSSTv5: time (1/1854-12/2020; units = "days since 1800-1-1 00:00:00")
 lat_sst_all = sst_all['lat'].values   # get coordinates from dataset
 lon_sst_all = sst_all['lon'].values   # lon = 0:360
@@ -345,7 +365,7 @@ lon_sst_all = sst_all['lon'].values   # lon = 0:360
 (indlon_sst, lonval_sst) = find_nearest(lon_sst_all, lonc)
 # (indtime_sst, timeval_sst) = find_nearest(time_sst_all , timec[0])   # coral data steps on midpoints, sst data steps on first day of month... find closest time in sst data set to start of coral data
 sst_f = sst_all[:,indlat_sst,indlon_sst]
-
+# print(sst_f.values)
 # match ages of SST and SSS data to coral data
 # sst_final = sst.sel(time = timec, method='nearest')
 
@@ -441,7 +461,11 @@ ssser_f = ssser_all[:,indlat_ssser,indlon_ssser]
 #=============================================================================
 
 coral_years = np.array(d18Oc.time.dt.year)   # array of years in coral data
-startyr = coral_years[0]         # start on a specified year
+if PRINT_STUFF:
+    print("Range of years in coral record: ")
+    print(coral_years)
+
+startyr = 1980 # coral_years[0]         # start on a specified year
 endyr = coral_years[-1]
 nyr = endyr-startyr      # set the last year for the tropical averages as the final year of coral data
 
@@ -466,13 +490,13 @@ t2 = dt2.datetime(endyr, 12, 31)
 # is the sel method specific to xarray? what could we do instead? 
 # it seems like this is just slicing the array to include times in [t1, t2]
 # a bitmask might be useful here too 
-'''
+
 d18Oc = d18Oc.sel(time=slice(t1, t2))
 sst_f = sst_f.sel(time=slice(t1, t2))
 sss_f = sss_f.sel(time=slice(t1, t2))
 sster_f = sster_f.sel(time=slice(t1, t2))
 ssser_f = ssser_f.sel(time=slice(t1, t2))
-'''
+
 
 
 
@@ -532,21 +556,34 @@ ssser_dt = xr.DataArray(ssser_dt1, coords=[ssser_f.time], dims=["time"])
 lb = np.array(sst_dt.time[::2])    
 lb = lb[0:-1]    
 
-d18Oc_dt = d18Oc_dt.dropna(dim = "time", how = "any") # maybe there was a nan that slipped through that's messing up the mean?
+
+
+# d18Oc_dt = d18Oc_dt.dropna(dim = "time", how = "any") # maybe there was a nan that slipped through that's messing up the mean?
+d18Oc_dt = d18Oc_dt.interpolate_na(dim = "time", method = "linear")
+
 lb = lb[~np.isnan(lb)]
 sst_dt = sst_dt[~np.isnan(sst_dt)]
+if PRINT_STUFF: 
+    print("BEFORE BINNING: ")
+    print(d18Oc_dt)
+        
 
-
-
+# why does binnning generate nan's even when interpolating? 
+# is it just that there is no data for certain two month periods? 
 d18Oc_bin = d18Oc_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()   
 sst_bin = sst_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()   
 sss_bin = sss_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 sster_bin = sster_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 ssser_bin = ssser_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 
-# print(d18Oc_bin) # what's up with the nans being generated when binning the isotope ratios bimonthly ? 
 
-# possible ad hoc fix
+d18Oc_bin = d18Oc_bin.interpolate_na(dim = "time_bins", method = "linear")
+
+if PRINT_STUFF:
+    print("AFTER BINNING AND INTERPOLATING AGAIN: ")
+    print(d18Oc_bin)
+
+# ad hoc fix for straggler nans
 d18Oc_bin = d18Oc_bin.dropna(dim = "time_bins", how = "any") 
 ssser_bin = ssser_bin.dropna(dim = "time_bins", how = "any")
 sster_bin = sster_bin.dropna(dim = "time_bins", how = "any")
@@ -557,7 +594,7 @@ sst_bin = sst_bin.dropna(dim = "time_bins", how = "any")
 #=============================================================================
 # Average data and propagate errors over the tropical year (Apr 1-Mar 31)
 #=============================================================================
-
+print(sst_bin)
 if time_step == 'year':
     # Initialize arrays
     d18Oc_final = np.empty([nyr], dtype=float)
@@ -579,12 +616,31 @@ if time_step == 'year':
         t1 = dt2.datetime(startyr+i, 4, 1)     # take time slice of dates in the tropical year (Apr 1-Mar 31)
         t2 = dt2.datetime(startyr+1+i, 3, 31)  # t1 = Apr 1, Year 1; t2 = Mar 31, Year 2
         #yr[i] = startyr+i
-    
+        
         # d18O and error
         d18Oc_bin = d18Oc_bin.dropna(dim = "time_bins", how = "any")
+        
 
         sub = d18Oc_bin.sel(time_bins=slice(t1, t2))       # select time slice of the tropical year
         
+        if PRINT_STUFF and i == 25: 
+            print("BINNED AND CLEANED: ")
+            print(d18Oc_bin)
+            print("sub is: ")
+            print(d18Oc_bin.sel(time_bins = slice(t1, t2)))
+            print("T1 and T2 are: ", t1, t2)
+
+        # in many instances, sub is empty; what do we do in these cases? 
+
+        try:
+            x = sub[0] # attempt to reference first element
+            # will throw an error if empty
+        except:
+            # if there is nothing in this two month period, interpolate?
+            continue
+
+
+
         d18Oc_final[i] = sub.mean(axis=0,skipna='True')
 
         # Calc total error in d18Oc
@@ -654,7 +710,7 @@ if time_step == 'year':
     d18O_plus_SST_err =  d18O_plus_SST_err[nan_mask]
     yr_sssfinal = yr_sssfinal[nan_mask]
 
-
+    # print(sst_final)
     for i in range(len(sss_final)):
         d18O_plus_SST[i] = d18Oc_final[i] + 0.21*sst_final[i]
         d18O_plus_SST_err[i] = d18Ocerr_final[i] + 0.21*0.21*sster_final[i]+2*0.21*np.cov(d18Oc_final,sst_final)[0][1]
@@ -686,7 +742,7 @@ else:
     d18O_plus_SST =  d18O_plus_SST_err[nan_mask]
     d18O_plus_SST_err =  d18O_plus_SST_err[nan_mask]
     yr_sssfinal = yr_sssfinal[nan_mask]
-
+    print(sst_final)
     for i in range(len(sss_final)):
         d18O_plus_SST[i] = d18Oc_final[i] + 0.21*sst_final[i]
         d18O_plus_SST_err[i] = d18Ocerr_final[i] + 0.21*0.21*sster_final[i]+2*0.21*np.cov(d18Oc_final,sst_final)[0][1]
@@ -712,8 +768,6 @@ ssser_final = ssser_final[nan_mask]
 
 
 
-# show arrays or not
-PRINT_STUFF = False 
 
 
 
@@ -781,16 +835,42 @@ print(b4)
 
 
 
-MAKE_PLOTS = False
+MAKE_PLOTS = True
 
 if MAKE_PLOTS: 
     plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
 
     plt.plot(sss_final, a4 + b4*sss_final, 'r', label="δ18Oc + 0.21*SST = {0:.3f}*SSS + {1:.2f}".format(b4, a4))
     plt.xlabel('SSS (%)')
-    plt.ylabel('Coral $\delta^{18}$O ($\perthousand$)')
+    plt.ylabel('Coral $\delta^{18}$O ($\perthousand$) + 0.21*SST')
     plt.legend(fontsize=8)
     plt.show()
 
     plt.plot(yr_sssfinal, sss_final, 'o', label = 'Time series: SSS')
     plt.show()
+
+
+
+"""
+Current issues: 
+
+HE18COC01
+When performing xarray groupby operation for time binning, previous removal of nan's results in empty bins 
+(a) interpolate instead of removing nan's before binning
+(b) remove nan's after binning
+(c) remove nan's before binning, but interpolate if a time bin is empty (may be the same as a)
+
+Even after using interpolation and dropna to clean d18Oc_bin,
+the 'sub' array is still empty for certain t1 and t2
+What should we do about this?  
+
+
+AB08MEN01
+Everything looks good in the arrays, but the end plot of the regression is just ... very off ?
+
+General:
+The a2 values we are getting seem way off, esp when compared to the values of delta_SW vs SSS in the literature 
+Need to fix round nearest month function 
+Why does using startyr = coral_years[0] produce weird results?
+
+"""

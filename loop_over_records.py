@@ -45,7 +45,8 @@ for recordID in coralnames:
 	error_encountered = False 
 	try:
 		# result = subprocess.check_output(['python3', 'regression:testing_version.py', '-i', recordID])
-		result = subprocess.check_output(['python3', 'cleaned_up_proxy_modeling.py', '-i', recordID])
+		result = subprocess.check_output(['python3', 'pyWLS_d18Oc_AA(1).py', '-i', recordID])
+		# result = subprocess.check_output(['python3', 'cleaned_up_proxy_modeling.py', '-i', recordID])
 	except:
 		error_encountered = True
 		result = 0
@@ -68,17 +69,20 @@ for recordID in coralnames:
 	print("a2 is...")
 
 	print('\n', a2)
+	try:
+		latc = np.array(f.get('ch2k/'+recordID+'/lat'))[0][0]
+		lonc = np.array(f.get('ch2k/'+recordID+'/lon'))[0][0]
+		 
+		latc = float(latc)
+		lonc = float(lonc) 
+	except:
+		print("no latitude longitude pair for this key")
 
-	latc = np.array(f.get('ch2k/'+recordID+'/lat'))[0][0]
-	lonc = np.array(f.get('ch2k/'+recordID+'/lon'))[0][0]
-	 
-	latc = float(latc)
-	lonc = float(lonc) 
-	
-	data_dict[recordID] = (latc, lonc, a2)
-	lon, lat = m(lonc, latc)
+	if not np.isnan(a2):
+		data_dict[recordID] = (latc, lonc, a2)
+		lon, lat = m(lonc, latc)
 
-	a2_plot = m.scatter(lat, lon, c=a2, s=30, cmap=plt.cm.jet)
+		a2_plot = m.scatter(lat, lon, c=a2, s=30, cmap=plt.cm.jet)
 
 		# random thoughts
 		# if this returns an array, do we average them? 
