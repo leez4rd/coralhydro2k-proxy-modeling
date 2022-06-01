@@ -21,6 +21,7 @@ m = Basemap(llcrnrlon=40,
             resolution = 'h',
             area_thresh=10000.,
             )
+
 m.drawcoastlines()
 
 
@@ -33,30 +34,51 @@ coralnames = list(dataset.keys()) #last key here is 'version'?
 
 data_dict = {}
 for recordID in coralnames:
+
+	# eventually need to make the calculation of a2 its own function with recordID as a parameter
+	# right now it just interfaces with command line to call the script and keeps chugging if there are errors
+
+	print("Current ID:")
+	print('\n', recordID)
+
+	current_record = f.get('ch2k/'+recordID+'/d18O')
+	error_encountered = False 
 	try:
+		# result = subprocess.check_output(['python3', 'regression:testing_version.py', '-i', recordID])
+		result = subprocess.check_output(['python3', 'cleaned_up_proxy_modeling.py', '-i', recordID])
+	except:
+		error_encountered = True
+		result = 0
+		a2 = 0
+		print("Error encountered in script, ignoring...")
 
-		# eventually need to make the calculation of a2 its own function with recordID as a parameter
-		# right now it just interfaces with command line to call the script and keeps chugging if there are errors
-
-		print("Current ID:")
-		print('\n', recordID)
-
-		current_record = f.get('ch2k/'+recordID+'/d18O')
-		result = subprocess.check_output(['python3', 'regression:testing_version.py', '-i', recordID])
-		
-		
+	if not error_encountered:
 		split_results = str(result).split('\\n')
+		print(len(split_results))
+		print(split_results)
+		# a2 = float(split_results[0][2:len(split_results[0])]) 
+		a2_string = str(split_results[0])
+		a2 = float(a2_string[2:len(a2_string)])
 		
-		a2 = float(split_results[len(split_results)-2])
 
-		print("a2 is...")
-		print('\n', a2)
-		latc = np.array(f.get('ch2k/'+recordID+'/lat'))
-		lonc = np.array(f.get('ch2k/'+recordID+'/lon')) 
+	# a2 = float(split_results[0][2:len(split_results[0])]) 
+	
+	# print(split_results[len(split_results)-2])
 
-		data_dict[recordID] = (latc, lonc, a2)
-		
-		#a2_plot = map.scatter(latc, lonc, c=a2, s=30, cmap=plt.cm.jet)
+	print("a2 is...")
+
+	print('\n', a2)
+
+	latc = np.array(f.get('ch2k/'+recordID+'/lat'))[0][0]
+	lonc = np.array(f.get('ch2k/'+recordID+'/lon'))[0][0]
+	 
+	latc = float(latc)
+	lonc = float(lonc) 
+	
+	data_dict[recordID] = (latc, lonc, a2)
+	lon, lat = m(lonc, latc)
+
+	a2_plot = m.scatter(lat, lon, c=a2, s=30, cmap=plt.cm.jet)
 
 		# random thoughts
 		# if this returns an array, do we average them? 
@@ -65,8 +87,8 @@ for recordID in coralnames:
 		# maybe use a dictionary comprehension with recordID as key and lat, lon tuple as value
 		# populate this dictionary as we loop
 		# maybe better to just output a three tuple of (lat, lon, a2)
-	except: 
-		print("Data is Nonetype, ignoring...")
+	#except: 
+	#	print("Error encountered, ignoring...")
 
 
 plt.show()

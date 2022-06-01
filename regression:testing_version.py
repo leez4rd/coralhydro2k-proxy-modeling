@@ -22,9 +22,17 @@ from scipy import signal
 from scipy import stats
 from pandas.tseries.offsets import MonthBegin
 from fit_bivariate import bivariate_fit
-import sys
+import os
 from datetime import datetime
 import cftime
+import sys
+
+
+sys.stderr = open(os.devnull, "w")
+
+
+
+
 
 # pd.to_datetime(s).values.astype('datetime64[h]')
 # consider abandoning numpy datetime64 bc of range issues in passing to pandas...
@@ -237,7 +245,7 @@ CO03CHBA01A
 # Others
 #coralid1 = 'WU14CLI01'    # Wu (2014) - Clipperton
 #coralid1 = 'GO08BER01'    # Goodkin (2008) - Bermuda
-#coralid1 = 'ST13MAL01'    # Storz (2013) - Maldives
+# coralid1 = 'ST13MAL01'    # Storz (2013) - Maldives
 #coralid1 = 'CA14TIM01'    # Cayharini (2014) - Timor, Indonesia
 
 
@@ -254,6 +262,7 @@ then we need to find a way to color that point according to a2 value
 
 
 '''
+# for some reason the a2 values are way off 
 
 # Define analysis interval
 time_step = 'year'
@@ -268,6 +277,13 @@ if len(sys.argv) > 1:
     #printt(coralid1)
     ##printt(recordID)
 else:
+    # the Maldives 
+    # coralid1 = 'ST13MAL01' 
+
+    # error sleuthing
+    # coralid1 = 'AB08MEN01'
+    # coralid1 ='CA13PEL01'
+
     # this one generates a time range error
     # coralid1 = 'AB20MEN07'
 
@@ -276,14 +292,17 @@ else:
 
     # this one's fine
     # coralid1 = 'HE18COC01'
-    coralid1 = 'ZI08MAY01'
+    # coralid1 = 'ZI08MAY01'
     # this one gives us "nonetype is not iterable" which means it isn't finding the ID in the data
     # coralid1 = 'CO95TUNG01A'
 
     # exit(0)
 
 data1 = f.get('ch2k/'+coralid1+'/d18O')
-#printt(data1[0,])
+
+# print(data1[0])
+# print(data1[1])
+
 
 # clean nan's
 mask = ~pd.isna(data1[0]) & ~pd.isna(data1[1])
@@ -291,6 +310,10 @@ mask = ~pd.isna(data1[0]) & ~pd.isna(data1[1])
 dates = data1[0][mask]
 datavals = data1[1][mask]
 data_cleaned = np.asarray([dates, datavals])
+
+# print(data_cleaned[0])
+# print(data_cleaned[1])
+
 
 # this still is not working, I suspect it is bc of inconsistent shapes -- may be as simple as applying mask to predictor variables 
 
@@ -434,7 +457,9 @@ ds = (
     .sel(**{'_longitude_adjusted': sorted(ds._longitude_adjusted)})
     .drop(lon_name))
 ds = ds.rename({'_longitude_adjusted': lon_name})
-##printt(ds)
+
+ds = ds.dropna(dim = "lat", how = "any")
+
 
 # Read in variables
 sst_all = ds['sst']
@@ -454,7 +479,6 @@ lon_sst_all = sst_all['lon'].values   # lon = 0:360
 sst_f = sst_all[:,indlat_sst,indlon_sst]
 ##printt(latval_sst)
 ##printt(timec[0])
-
 # Match ages of SST and SSS data to coral data
 #sst_final = sst.sel(time = timec, method='nearest')
 ##printt(sst_f)
@@ -463,6 +487,9 @@ sst_f = sst_all[:,indlat_sst,indlon_sst]
 # Read in ERSSTv5 uncertainties 
 #============================================================================
 ds = xr.open_dataset(dir+'ersstev5_uncertainty.nc',decode_times=True)         # ERSST v5
+
+ds = ds.dropna(dim = "latitude", how = "any")
+
 # Change longitude array from 0:360 to -180:180
 lon_name = 'longitude'  # whatever name is in the data
 # Adjust lon values to make sure they are within (-180, 180)
@@ -497,8 +524,58 @@ sster_f = sster_all[:,indlat_sster,indlon_sster]
 #dir = '/Users/alyssa_atwood/Desktop/Dropbox/Obs_datasets/Salinity/HadEN4/'
 dir = ''
 ds = xr.open_dataset(dir+'sss_HadleyEN4.2.1g10_190001-201012.nc',decode_times=True)         # ERSST v5
-##printt(ds)
+
+# print(ds['sss'])
+# need to figure out how to drop nans from 3D SSS dataset 
+'''
+# this is awful but none of the other ways to get rid of nans actually work 
+x = np.array(ds['sss'])
+y = []
+for i in range(len(x)):
+    flags = []
+    for j in range(len(x[i])):
+        drop = False
+        for k in range(len(x[i][j])):
+            if np.isnan(x[i][j][k]):
+                drop = True
+            flags += [drop] 
+    if flags[i] == True:
+        y += [x[i]]
+print(y)
+'''
+'''
+for i in range(len(x)):
+    x[i] = x[i][~np.isnan(x[i]).any(axis=0)]
+print(x)
+'''
+# x = x[~np.isnan(x).any(axis=0)]
+
+# ds = ds.interpolate_na(dim = "time", method = "linear", fill_value = "extrapolate")
+
+ds = ds.dropna(dim = "lat", how = "any")
+
+# print(ds['sss'])
+
+# instead of removing nans, just chop off rows at beginning 
+# 
+
+
+
+
+# print(ds['sss'])
 sss_all = ds['sss']
+'''
+sss_mod = []
+print(ds['sss'][5][12:len(sss_all)])
+for i in range(len(sss_all)):
+    sss_mod += [sss_all[i][12:len(sss_all)]]
+print(sss_mod)
+sss_mod = np.array(sss_mod)
+sss_mod = xr.DataArray(sss_mod)
+sss_all = sss_mod 
+'''
+# problem with above is that it removes the dimension keywords....
+
 time_sss_all = ds['time']             # HadEN4: time x lat x lon (time = 1900:2010)
 lat_sss_all = sss_all['lat'].values   # get coordinates from dataset
 lon_sss_all = sss_all['lon'].values
@@ -517,18 +594,23 @@ sss_f = sss_all[:,indlat_sss,indlon_sss]
 # Read in HadEN4 uncertainties 
 #============================================================================
 ds = xr.open_dataset(dir+'sss_HadleyEN4.2.1g10_190001-202012_salinityerrorSD.nc',decode_times=True)         # ERSST v5
+
+ds = ds.dropna(dim = "LAT", how = "any") # not exactly sure why we are dropping along this dimension but im not questioning it yet
+
 ssser_all = ds['SALT_ERR_STD']
 time_ssser_all = ds['TIME']               # HadEN4 error: time x 1 x lat x lon (time = 1900:2020)
 lat_ssser_all = ssser_all['LAT'].values   # get coordinates from dataset
 lon_ssser_all = ssser_all['LONN180_180'].values
 
+
 # Get rid of singleton depth dimension - Create new DataArray object by specifying coordinates and dimension names (xarray) from numpy array
+
 ssser_all = xr.DataArray(ssser_all[:,0,:,:], coords=[time_ssser_all,lat_ssser_all,lon_ssser_all], dims=["time","lat","lon"])
 
+# ssser_all = xr.DataArray(ssser_all, coords=[time_ssser_all,lat_ssser_all,lon_ssser_all], dims=["time","lat","lon"])
 (indlat_ssser, latval_ssser) = find_nearest(lat_ssser_all, latc)
 (indlon_ssser, lonval_ssser) = find_nearest(lon_ssser_all, lonc)
 ssser_f = ssser_all[:,indlat_ssser,indlon_ssser]
-##printt(time_ssser_all)
 
 # Match ages of SST and SSS data to coral data
 #ssser_final = ssser.sel(time = timec, method='nearest')
@@ -573,9 +655,9 @@ ssser_f = ssser_all[:,indlat_ssser,indlon_ssser]
 #d18Oc_yr = d18Oc.groupby('time.month').mean('time')   # monthly climatology    
 #d18Oc_yr = d18Oc.groupby('time.month').mean('time')[0:2]   # monthly climatology of Dec-Mar
 
-###printt(d18Oc.time[0:24])     # ##printt months of first 11 data points
-###printt(d18Oc["time.month"][0:24])     # ##printt months of first 11 data points
-###printt(d18Oc[0:24])     # ##printt months of first 11 data points
+# print(d18Oc.time[0:24])     # ##printt months of first 11 data points
+# print(d18Oc["time.month"][0:24])     # ##printt months of first 11 data points
+# print(d18Oc[0:24])     # ##printt months of first 11 data points
 
 #nyr = np.int(len(d18Oc)/12)   # nearest integer, rounded down
 
@@ -611,7 +693,7 @@ coral_years = np.array(d18Oc.time.dt.year)   # array of years in coral data
 #startyr = 1975           # start on a specified year
 #startyr = 1979           # start on a specified year
 #startyr = 1960           # start on a specified year
-startyr = 1900          # start on a specified year
+startyr = coral_years[0]         # start on a specified year
 endyr = coral_years[-1]
 nyr = endyr-startyr      # set the last year for the tropical averages as the final year of coral data
 ##printt(nyr)
@@ -678,9 +760,7 @@ ssser_f = ssser_f.sel(time=slice(t1, t2))
 # Detrend the SST, SSS, and d18Oc data, but retain the intercept (so just remove the trend but the values aren't centered around 0)
 # #printt(d18Oc.time.dt.year[0]) #why is this array empty?
 
-#printt(d18Oc)
 
-# what is this actually doing? can we do it without dt accessors?
 time_d18Oc = d18Oc.time.dt.year+d18Oc.time.dt.month/12-1/24 - d18Oc.time.dt.year[0]       # subtract the first year so the intercept is defined at start year 
 time_sst = sst_f.time.dt.year+sst_f.time.dt.month/12-1/24 - sst_f.time.dt.year[0]
 time_sss = sss_f.time.dt.year+sss_f.time.dt.month/12-1/24 - sss_f.time.dt.year[0]
@@ -705,6 +785,7 @@ sst_dt = xr.DataArray(sst_dt1, coords=[sst_f.time], dims=["time"])
 sss_dt = xr.DataArray(sss_dt1, coords=[sss_f.time], dims=["time"])
 sster_dt = xr.DataArray(sster_dt1, coords=[sster_f.time], dims=["time"])
 ssser_dt = xr.DataArray(ssser_dt1, coords=[ssser_f.time], dims=["time"])
+
 
 # Downsample to 2-month bins (nan if no data in a given month), using time bins from d18Oc data
 #   preferred over monthly interpolation, which can introduce errors
@@ -734,7 +815,6 @@ sss_bin = sss_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 sster_bin = sster_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 ssser_bin = ssser_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 
-
 #=============================================================================
 # Average data and propogate errors over the tropical year (Apr 1-Mar 31)
 #=============================================================================
@@ -761,6 +841,7 @@ if time_step == 'year':
        #yr[i] = startyr+count
     
        # d18O and error
+
        sub = d18Oc_bin.sel(time_bins=slice(t1, t2))       # select time slice of the tropical year
        d18Oc_final[i] = sub.mean(axis=0,skipna='True')
        # Calc total error in d18Oc
@@ -777,6 +858,7 @@ if time_step == 'year':
      
        # SST and error
        sub = sst_bin.sel(time_bins=slice(t1, t2))       # select time slice of the tropical year
+       
        sst_final[i] = sub.mean(axis=0,skipna='True')
        yr_sstfinal[i] = pd.to_datetime(np.array(sub.time_bins[0])).year    # year of start of bins (convert to np array, then pandas datetime object to extract year)
        
@@ -795,6 +877,7 @@ if time_step == 'year':
        # SSS and error
        sub = sss_bin.sel(time_bins=slice(t1, t2))       # select time slice of the tropical year
        sss_final[i] = sub.mean(axis=0,skipna='True')
+       
        yr_sssfinal[i] = pd.to_datetime(np.array(sub.time_bins[0])).year    # year of start of bins (convert to np array, then pandas datetime object to extract year)
 
        sub2 = ssser_bin.sel(time_bins=slice(t1, t2))       # select time slice of the tropical year
@@ -810,6 +893,8 @@ if time_step == 'year':
        ssser_final[i] = ((sigma_slope**2) + (sss_analerr**2))**0.5  # this is the combined error in d18Oc from: (1) standard deviation of the mean over the year, and (2) the analyical error, combined in quadrature. 
        count = count + 1
     
+    # print(d18Oc_final)
+
     #experimenting...
     for i in range(len(sss_final)):
         d18O_plus_SST[i] = d18Oc_final[i] + 0.21*sst_final[i]
@@ -836,8 +921,35 @@ else:
         # d18O_plus_SST = d18O_plus_SST[mask] # applying nan cleaning mask
 
 
-#print
-#sst_yr = sst.groupby('time.year').mean('time')        # 1854-2020
+# last pass nan removal; enforcing shape consistency -- gotta be a better way than this 
+d18O_plus_SST = d18O_plus_SST[~np.isnan(sss_final)]
+d18O_plus_SST_err = d18O_plus_SST_err[~np.isnan(sss_final)]
+sster_final = sster_final[~np.isnan(sss_final)]
+yr_sssfinal = yr_sssfinal[~np.isnan(sss_final)]
+
+sss_final = sss_final[~np.isnan(sss_final)]
+ssser_final = ssser_final[~np.isnan(ssser_final)]
+
+
+d18O_plus_SST_err = d18O_plus_SST_err[~np.isnan(d18O_plus_SST)]
+sster_final = sster_final[~np.isnan(d18O_plus_SST)]
+yr_sssfinal = yr_sssfinal[~np.isnan(d18O_plus_SST)]
+
+sss_final = sss_final[~np.isnan(d18O_plus_SST)]
+ssser_final = ssser_final[~np.isnan(d18O_plus_SST)]
+d18O_plus_SST = d18O_plus_SST[~np.isnan(d18O_plus_SST)]
+
+
+sster_final = sster_final[~np.isnan(d18O_plus_SST_err)]
+yr_sssfinal = yr_sssfinal[~np.isnan(d18O_plus_SST_err)]
+
+sss_final = sss_final[~np.isnan(d18O_plus_SST_err)]
+ssser_final = ssser_final[~np.isnan(d18O_plus_SST_err)]
+d18O_plus_SST = d18O_plus_SST[~np.isnan(d18O_plus_SST_err)]
+
+d18O_plus_SST_err = d18O_plus_SST_err[~np.isnan(d18O_plus_SST_err)]
+
+#sst_yr = sst.groupby('time.year').mean('time')        # 1
 #sster_yr = sster.groupby('time.year').mean('time')    # 1854-2016
 #sss_yr = sss.groupby('time.year').mean('time')        # 1854-2020
 #ssser_yr = ssser.groupby('time.year').mean('time')    # 1854-2016
@@ -873,39 +985,34 @@ Y[:,0] = d18Oc_final    # d18Oc yearly values
 varY = np.zeros((nt,1))         
 varY[:,0] = np.square(d18Ocerr_final)         # (d18Oc errors)^2
 
-X = np.zeros((nt,2))
-X[:,0] = sst_final# [mask]
-X[:,1] = sss_final# [mask]
+# X = np.zeros((nt,2))
+# X[:,0] = sst_final # [mask]
+# X[:,1] = sss_final # [mask]
 
-varX = np.zeros((nt,2))
-varX[:,0] = np.square(sster_final)
-varX[:,1] = np.square(ssser_final)
+# varX = np.zeros((nt,2))
+# varX[:,0] = np.square(sster_final)
+# varX[:,1] = np.square(ssser_final)
 
-sss_final = sss_final# [mask]
-sst_final = sst_final# [mask]
-ssser_final = ssser_final# [mask]
-sster_final = sster_final# [mask]
+'''
+sss_final = sss_final # [mask]
+sst_final = sst_final # [mask]
+ssser_final = ssser_final # [mask]
+sster_final = sster_final # [mask]
+'''
 
-# Regress d18Oc + 0.21*SST onto SSS (slope should be a2?)
-[a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, sster_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
+# Regress d18Oc + 0.21*SST onto SSS
+[a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
 
 # d18Oc + 0.21SST vs SSS
 
-#printt(d18Oc_final)
-#printt("_______________________")
 
-plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
+# print("_______________________")
 
-plt.plot(sss_final, a4 + b4*sss_final, 'r', label="δ18Oc + 0.21*SST = {0:.3f}*SSS + {1:.2f}".format(b4, a4))
-plt.xlabel('SSS (%)')
-plt.ylabel('Coral $\delta^{18}$O ($\perthousand$)')
-plt.legend(fontsize=8)
-plt.show()
+'''
 
-plt.plot(yr_sssfinal, sss_final, 'o', label = 'time series')
-plt.show()
+'''
 
-#printt(a4)
+print(b4)
 
 '''
 plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
