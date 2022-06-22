@@ -1,17 +1,16 @@
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
+from matplotlib import colors 
 import numpy as np
 import h5py
 import os 
 import subprocess 
 
-# DISCLAIMER: very hacky right now, just trying to get something going 
-
 # creating map to plot data on 
 m = Basemap(projection='merc',llcrnrlat=-80,urcrnrlat=80,llcrnrlon=-180,urcrnrlon=180,lat_ts=20,resolution='c')
 
 
-m = Basemap(llcrnrlon=40,
+m = Basemap(llcrnrlon=-70,
             llcrnrlat=-60,
             urcrnrlon=260,
             urcrnrlat=60,
@@ -31,7 +30,10 @@ dataset = f.get('ch2k/')
 coralnames = list(dataset.keys()) #last key here is 'version'? 
 
 # loop through record ID's 
-
+lats = []
+lons = []
+a2s = []
+dotsizes = []
 data_dict = {}
 for recordID in coralnames:
 
@@ -45,8 +47,9 @@ for recordID in coralnames:
 	error_encountered = False 
 	try:
 		# result = subprocess.check_output(['python3', 'regression:testing_version.py', '-i', recordID])
-		result = subprocess.check_output(['python3', 'pyWLS_d18Oc_AA(1).py', '-i', recordID])
+		# result = subprocess.check_output(['python3', 'pyWLS_d18Oc_AA(1).py', '-i', recordID])
 		# result = subprocess.check_output(['python3', 'cleaned_up_proxy_modeling.py', '-i', recordID])
+		result = subprocess.check_output(['python3', 'ch2k_regression.py', '-i', recordID])
 	except:
 		error_encountered = True
 		result = 0
@@ -59,6 +62,8 @@ for recordID in coralnames:
 		print(split_results)
 		# a2 = float(split_results[0][2:len(split_results[0])]) 
 		a2_string = str(split_results[0])
+		r4m = float(split_results[1])
+		p4m = float(split_results[2])
 		a2 = float(a2_string[2:len(a2_string)])
 		
 
@@ -79,10 +84,17 @@ for recordID in coralnames:
 		print("no latitude longitude pair for this key")
 
 	if not np.isnan(a2):
-		data_dict[recordID] = (latc, lonc, a2)
-		lon, lat = m(lonc, latc)
-
-		a2_plot = m.scatter(lat, lon, c=a2, s=30, cmap=plt.cm.jet)
+		if a2 < 5 and a2 != 0:
+			data_dict[recordID] = (latc, lonc, a2)
+			# lat, lon = m(latc, lonc)
+			lats += [latc]
+			lons += [lonc]
+			a2s += [a2] # normalized to 5 temporarily, should be max a2 that we trust 
+			dotsizes += [r4m*r4m*100] # multiply R^2 to exaggerate size differences 
+			print(lats)
+			print(lons)
+			print(a2s)
+	
 
 		# random thoughts
 		# if this returns an array, do we average them? 
@@ -94,8 +106,20 @@ for recordID in coralnames:
 	#except: 
 	#	print("Error encountered, ignoring...")
 
+# someone on stack overflow suggested switching lat and lon here... confusing but we will see if it works 
+# a2s = colors.Normalize(a2s)
+# copya2 = a2s
+# a2s = [x for x in a2s if x != 0] # ignore all cases where a2 was zero (ie script fails)
+# lons = [x for x,y in lons, copya2 if y != 0] # ignore all cases where a2 was zero (ie script fails)
+# lats = [x for x,y in lats, copya2 if y != 0] # ignore all cases where a2 was zero (ie script fails)
+# dotsizes  =[x for x in dotsizes if x != 0]
 
+a2s = np.array(a2s)
+print(a2s)
+a2_plot = m.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -1, vmax = 1 , cmap = "Greens", latlon = True)
+plt.colorbar(a2_plot)
 plt.show()
+
 print(data_dict)
 
 
