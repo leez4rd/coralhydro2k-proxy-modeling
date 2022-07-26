@@ -5,15 +5,18 @@ import numpy as np
 import h5py
 import os 
 import subprocess 
+import seaborn as sns 
+
+# filter by coral species and site_type
 
 # creating map to plot data on 
 m = Basemap(projection='merc',llcrnrlat=-80,urcrnrlat=80,llcrnrlon=-180,urcrnrlon=180,lat_ts=20,resolution='c')
 
 
-m = Basemap(llcrnrlon=-70,
-            llcrnrlat=-60,
-            urcrnrlon=260,
-            urcrnrlat=60,
+m = Basemap(llcrnrlon=-180,
+            llcrnrlat=-75,
+            urcrnrlon=180,
+            urcrnrlat=75,
             lat_0=0,
             lon_0=180,
             projection='merc',
@@ -21,7 +24,8 @@ m = Basemap(llcrnrlon=-70,
             area_thresh=10000.,
             )
 
-m.drawcoastlines()
+# m.drawcoastlines()
+# m.fillcontinents(color = 'white',lake_color='#46bcec')
 
 
 # read in database
@@ -34,8 +38,18 @@ lats = []
 lons = []
 a2s = []
 dotsizes = []
+mean_sss_all = []
+std_sss_all = []
+all_covariances = []
+std_ratios = []
 data_dict = {}
+
+
+stop_early_count = 0 
 for recordID in coralnames:
+	if stop_early_count == 10:
+		break
+	stop_early_count += 1
 
 	# eventually need to make the calculation of a2 its own function with recordID as a parameter
 	# right now it just interfaces with command line to call the script and keeps chugging if there are errors
@@ -64,7 +78,13 @@ for recordID in coralnames:
 		a2_string = str(split_results[0])
 		r4m = float(split_results[1])
 		p4m = float(split_results[2])
+		covariance = float(split_results[3])
+		mean_sss = float(split_results[4])
+		sss_std = float(split_results[5])
+		std_ratio = float(split_results[6])
 		a2 = float(a2_string[2:len(a2_string)])
+
+
 		
 
 	# a2 = float(split_results[0][2:len(split_results[0])]) 
@@ -84,7 +104,7 @@ for recordID in coralnames:
 		print("no latitude longitude pair for this key")
 
 	if not np.isnan(a2):
-		if a2 < 5 and a2 != 0:
+		if np.abs(a2) < 2.5 and a2 != 0:
 			data_dict[recordID] = (latc, lonc, a2)
 			# lat, lon = m(latc, lonc)
 			lats += [latc]
@@ -94,7 +114,15 @@ for recordID in coralnames:
 			print(lats)
 			print(lons)
 			print(a2s)
-	
+			print(dotsizes)
+
+			# do we need to do this for every record? 
+			mean_sss_all += [mean_sss]
+			std_sss_all += [sss_std]
+			all_covariances += [covariance]
+			std_ratios += [std_ratio]
+			print(mean_sss_all)
+			print(all_covariances)
 
 		# random thoughts
 		# if this returns an array, do we average them? 
@@ -115,33 +143,95 @@ for recordID in coralnames:
 # dotsizes  =[x for x in dotsizes if x != 0]
 
 a2s = np.array(a2s)
-print(a2s)
-a2_plot = m.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -1, vmax = 1 , cmap = "Greens", latlon = True)
+
+'''
+sns.scatterplot(mean_sss_all, a2s, size = dotsizes, legend = "brief")
+plt.xlabel("Mean SSS")
+plt.ylabel("a2")
+plt.savefig('a2s_and_mean_SSS.jpg')
+sns.scatterplot(std_sss_all, a2s, size = dotsizes, legend = "brief")
+plt.xlabel("Standard Deviation of SSS")
+plt.ylabel("a2")
+plt.savefig('a2s_and_SSS_SD.jpg')
+sns.scatterplot(all_covariances, a2s, size = dotsizes, legend = "brief")
+plt.xlabel("Covariance of SSS and SST")
+plt.ylabel("a2")
+plt.savefig('a2s_and_covariance.jpg')
+
+sns.scatterplot(std_ratios, a2s, size = dotsizes, legend = "brief")
+plt.xlabel("ratio of SD's of SSS, SST")
+plt.ylabel("a2")
+plt.savefig('a2s_and_SD_ratio.jpg')
+'''
+
+a2_plot = m.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -3, vmax = 3 , cmap = "coolwarm", latlon = True)
 plt.colorbar(a2_plot)
+
+
+# for color mesh, color variable needs to be 2 dimensionally indexed
+# ie cov(SSS, SST) at latitude longitude needs to be stored as value in a matrix 
+# lats, lons, and all_covariances are our input lists, so we need to build a color matrix
+# such that color matrix [lats[i], lons[i]] = all_covariances[i]
+lons = np.asarray(lons)
+lats = np.asarray(lats)
+
+lats, lons = m(lons, lats)
+print(lats)
+print(lons)
+
+print("st")
+print(np.max(lons))
+color_matrix = np.empty([int(np.max(lons)) + 1, int(np.max(lats)) + 1])
+print(lons)
+print(lats)
+for i in range(len(lats)):
+ 	color_matrix[int(lons[i]), int(lats[i])] = all_covariances[i]
+
+print(color_matrix)
+
+longitudes, latitudes = np.meshgrid(lons, lats)
+
+print(longitudes)
+print(latitudes)
+
+m.pcolormesh(lons, lats, color_matrix,
+             latlon=True, cmap='coolwarm')
 plt.show()
 
+print("latitudes")
+print(lats)
+print("longitudes")
+print(lons)
+print("a2 values: ")
+print(a2s)
+print("R^2 values: ")
+print(dotsizes)
+print("Mean SSS values: ")
+print(mean_sss_all)
+print("SD of SSS: ")
+print(std_sss_all)
+print("Covariances between SSS and SST: ")
+print(all_covariances)
+print("Ratios between the SD's")
+print(std_ratios)
+
+print("mapping data: ")
 print(data_dict)
 
 
 
-'''
+
+
 # mapping part
 # assuming we are fed a dictionary of the form recordID: (lat, lon, a2)
 # maybe put this in above for loop instead? 
-
-# **** currently just a scatterplot of random values over the Pacific ***** #
-
+'''
 lat_min = -40
 lat_max = 40
 lon_min = 90
 lon_max = 300
 
 
-'''
-
-
-
-'''
 x = np.empty(1000)
 y = np.empty(1000)
 for i in range(1000):
@@ -150,9 +240,5 @@ for i in range(1000):
 
 x, y = m(list(x), list(y)'''
 
-#plt.scatter(x,y,z,marker='o',color='Red', zorder = 3)
-plt.show()
-
-
-
-            
+# plt.scatter(x,y,z,marker='o',color='Red', zorder = 3)
+# plt.show()

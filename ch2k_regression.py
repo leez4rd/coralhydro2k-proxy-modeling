@@ -32,6 +32,12 @@ from cftime import DatetimeProlepticGregorian
 # show arrays or not
 PRINT_STUFF = False 
 
+def average_xarrays(*arrays):
+    avg = 0
+    for array in arrays:
+        print(array)
+        avg += (array['time'].data)
+
 
 def decyrs_to_datetime(decyrs):      # converts date in decimal years to a datetime object (from https://stackoverflow.com/questions/20911015/decimal-years-to-datetime-in-python)
     
@@ -41,7 +47,7 @@ def decyrs_to_datetime(decyrs):      # converts date in decimal years to a datet
         start = decyrs[l]                   # this is the input (time in decimal years)
         year = int(start)
         rem = start - year
-        base = DatetimeProlepticGregorian(year, 1, 1)
+        base = datetime(year, 1, 1)
         result = base + timedelta(seconds=(base.replace(year=base.year + 1) - base).total_seconds() * rem)
         # result2 = result.strftime("%Y-%m-%d")   # truncate to just keep YYYY-MM-DD (get rid of hours, secs, and minutes)
       
@@ -228,8 +234,8 @@ CO03CHBA01A
 
 
 # Define analysis interval
-time_step = 'year'
-# time_step = 'bimonthly'
+# time_step = 'year'
+time_step = 'bimonthly'
 
 #============================================================================
 # Read in coral d18O data
@@ -260,7 +266,7 @@ else:
 
     # this one generates a time range error
 
-    coralid1 = 'AB20MEN07'
+    # coralid1 = 'AB20MEN07'
 
     # this one generates a shape error 
     # coralid1 = 'CA13TUR01'
@@ -275,6 +281,7 @@ else:
     # coralid1 = 'NU09CHR01'    # Nurhati (2009) - Christmas Island (Tier 2)
     # coralid1 = 'AS05GUA01'
     # coralid1 = 'MO20KOI01'
+    coralid1 = 'OS14UCP01'
 
     # exit(0)
 
@@ -291,6 +298,7 @@ try:
 except: 
     pass
 '''
+
 data_cleaned = data1 # np.asarray([dates, datavals])
 dataset = f.get('ch2k/')
 coralnames = list(dataset.keys())
@@ -307,7 +315,7 @@ d18Oc_analerr = data_analerr[0,:]      # analytical error is a single value (in 
 
 
 # round time steps to nearest month (just a couple days off in some months)
-# timec1mo = round_nearest_month(timec1) -- need to rewrite this function to avoid pandas 
+timec1mo = round_nearest_month(timec1) 
 
 timec1mo = timec1  
 if False:                  # if a second coral id (coralid2) exixts, merge the two data sets
@@ -318,7 +326,7 @@ if False:                  # if a second coral id (coralid2) exixts, merge the t
     timec2mo = round_nearest_month(timec2)
 
     # Merge records
-    timec = np.concatenate((timec1mo,timec2mo),axis=0)
+    timec = np.concatenate((timec1mo,timec2mo),axis=0) # will result in division by zero if same yr
     d18Oc = np.concatenate((d18Oc1,d18Oc2),axis=0)
 else:
     timec = timec1mo
@@ -356,6 +364,7 @@ lon_name = 'lon'  # whatever name is in the data
 # Adjust lon values to make sure they are within (-180, 180)
 ds['_longitude_adjusted'] = xr.where(ds[lon_name] > 180, ds[lon_name] - 360, ds[lon_name])
 # reassign the new coords to as the main lon coords and sort DataArray using new coordinate values
+
 ds = (
     ds
     .swap_dims({lon_name: '_longitude_adjusted'})
@@ -368,7 +377,7 @@ ds = ds.rename({'_longitude_adjusted': lon_name})
 sst_all = ds['sst']
 # print(sst_all.values)
 time_sst_all = ds['time']             # ERSSTv5: time (1/1854-12/2020; units = "days since 1800-1-1 00:00:00")
-print(time_sst_all[0])
+
 
 lat_sst_all = sst_all['lat'].values   # get coordinates from dataset
 lon_sst_all = sst_all['lon'].values   # lon = 0:360
@@ -496,8 +505,8 @@ nyr = endyr-startyr      # set the last year for the tropical averages as the fi
 
 # Select time period
 
-t1 = DatetimeProlepticGregorian(startyr, 1, 1)     
-t2 = DatetimeProlepticGregorian(endyr, 12, 31) 
+t1 = datetime(startyr, 1, 1)     
+t2 = datetime(endyr, 12, 31) 
 # t1 = d18Oc.time[0]   
 # t2 = d18Oc.time[-1] 
 
@@ -582,6 +591,7 @@ if PRINT_STUFF:
 
 # why does binnning generate nan's even when interpolating? 
 # is it just that there is no data for certain two month periods? 
+
 d18Oc_bin = d18Oc_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()   
 sst_bin = sst_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()   
 sss_bin = sss_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
@@ -753,16 +763,27 @@ else:
 
     # NOTE: for bimonthly, we need to use xarray built in function to avoid type error
     # remove nans before computing composite variable 
+    
+    d18Oc_final = d18Oc_final[tuple(nan_mask)]
+    sst_final = sst_final[tuple(nan_mask)]
+    sster_final = sster_final[tuple(nan_mask)]
+    d18Ocerr_final = d18Ocerr_final[tuple(nan_mask)]
+    sss_final = sss_final[tuple(nan_mask)]
+    ssser_final = ssser_final[tuple(nan_mask)]
+    d18O_plus_SST =  d18O_plus_SST_err[tuple(nan_mask)]
+    d18O_plus_SST_err =  d18O_plus_SST_err[tuple(nan_mask)]
+    
     '''
-    d18Oc_final = d18Oc_final[nan_mask]
-    sst_final = sst_final[nan_mask]
-    sster_final = sster_final[nan_mask]
-    d18Ocerr_final = d18Ocerr_final[nan_mask]
-    sss_final = sss_final[nan_mask]
-    ssser_final = ssser_final[nan_mask]
-    d18O_plus_SST =  d18O_plus_SST_err[nan_mask]
-    d18O_plus_SST_err =  d18O_plus_SST_err[nan_mask]
+    d18Oc_final = d18Oc_final.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    sst_final = sst_final.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    sster_final = sster_final.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    d18Ocerr_final = d18Ocerr_final.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    sss_final = sss_final.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    ssser_final = ssser_final.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    d18O_plus_SST =  d18O_plus_SST_err.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
+    d18O_plus_SST_err =  d18O_plus_SST_err.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
     '''
+
     # yr_sssfinal = yr_sssfinal[nan_mask]
     
     for i in range(len(sss_final)):
@@ -799,9 +820,9 @@ if PRINT_STUFF:
     print("coral dataset: ")
     print(data1)
     print("isotope ratios after first cleaning: ")
-    print(datavals)
+    # print(datavals)
     print("dates after first cleaning: ")
-    print(dates)
+    # print(dates)
 
     print("Times from xarray operation: ")
     print(time_d18Oc)
@@ -845,16 +866,21 @@ if PRINT_STUFF:
     print(ssser_final)
 
     print("sub is: ")
-    print(sub)
-    print("isotope ratios binned: ")
-    print(d18Oc_bin)
+    # print(sub)
+
+    print("isotope ratios final: ")
+    print(d18Oc_final)
   
   
-    
+[a1, b1, S1, cov_matrix1] = bivariate_fit(sss_final, d18Oc_final, ssser_final, d18Ocerr_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [d18Oc]
 
 # Regress d18Oc + 0.21*SST onto SSS
-
-[a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
+# print("what is this returning?")
+# print(bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6)[0])   # here X =[SSS], Y = [SST])
+if time_step == 'bimonthly':
+    [a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final.values, d18O_plus_SST, ssser_final.values, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6) # here X =[SSS], Y = [SST]
+else:
+     [a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6) # here X =[SSS], Y = [SST]
 
 # print(sss_final)
 # print(d18O_plus_SST)
@@ -865,61 +891,69 @@ if PRINT_STUFF:
 print(b4)
 print(r4m)
 print(p4m)
+sss_sst_covariance = np.cov(sss_final,sst_final)[0][1]
+print(sss_sst_covariance)
+mean_sss = np.mean(sss_final.values)
+print(mean_sss)
+std_sss = np.std(sss_final.values)
+print(std_sss)
+std_ratio = np.std(sss_final.values) / np.std(sst_final.values)
+print(std_ratio)
 
-'''
-plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
+A2_PLOTS = False
+if A2_PLOTS:
+    plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
 
-plt.plot(sss_final, a4 + b4*sss_final, 'r', label="δ18Oc + 0.21*SST = {0:.3f}*SSS + {1:.2f}".format(b4, a4))
-plt.xlabel('SSS (%)')
-plt.ylabel('Coral $\delta^{18}$O ($\perthousand$) + 0.21*SST')
-plt.legend(fontsize=8)
-plt.text(50, 10, 'R^2 = {0:.2f}'.format(r4m*r4m), horizontalalignment='center',verticalalignment='center') #transform=ax.transAxes: indicates that the coordinates are given relative to the axes bounding box, with (0, 0) being the lower left of the axes and (1, 1) the upper right. 
-plt.show()
+    plt.plot(sss_final, a4 + b4*sss_final, 'r', label="δ18Oc + 0.21*SST = {0:.3f}*SSS + {1:.2f}".format(b4, a4))
+    plt.xlabel('SSS (%)')
+    plt.ylabel('Coral $\delta^{18}$O ($\perthousand$) + 0.21*SST')
+    plt.legend(fontsize=8)
+    plt.text(50, 10, 'R^2 = {0:.2f}'.format(r4m*r4m), horizontalalignment='center',verticalalignment='center') #transform=ax.transAxes: indicates that the coordinates are given relative to the axes bounding box, with (0, 0) being the lower left of the axes and (1, 1) the upper right. 
+    plt.show()
 
-plt.savefig(coralid1 + '_a2_regression.jpg')
+    plt.savefig(coralid1 + '_a2_regression.jpg')
 
-time = range(startyr,endyr)
-fig, ax = plt.subplots(figsize=(10,4))
-plt.gca().invert_yaxis()
-#fig, ax = plt.subplots(figsize=(15,5))
-#ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
-ax.plot(yr_d18Ocfinal,d18Oc_final,color='black',label='d18Oc')
+    time = range(startyr,endyr)
+    fig, ax = plt.subplots(figsize=(10,4))
+    plt.gca().invert_yaxis()
+    #fig, ax = plt.subplots(figsize=(15,5))
+    #ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
+    ax.plot(yr_d18Ocfinal,d18Oc_final,color='black',label='d18Oc')
 
-ax2=ax.twinx()
-plt.gca().invert_yaxis()
-#ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
-ax2.plot(yr_sssfinal,sss_final,color='red',label='sss')
-#ax1 = plt.gca()
-#ax1.set_xticks([1980,1990,2000,2010,2020])
-lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
-#ax2.set_ylim(26,28)
-#plt.xlim(startyr,endyr)
-ax.set_xlabel('Year (CE)')
-ax.set_title('SSS and d18Oc (trop year avg)')
-plt.savefig(coralid1+'_sssyr_ts.jpg', bbox_inches='tight')
+    ax2=ax.twinx()
+    plt.gca().invert_yaxis()
+    #ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
+    ax2.plot(yr_sssfinal,sss_final,color='red',label='sss')
+    #ax1 = plt.gca()
+    #ax1.set_xticks([1980,1990,2000,2010,2020])
+    lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
+    #ax2.set_ylim(26,28)
+    #plt.xlim(startyr,endyr)
+    ax.set_xlabel('Year (CE)')
+    ax.set_title('SSS and d18Oc (trop year avg)')
+    plt.savefig(coralid1+'_sssyr_ts.jpg', bbox_inches='tight')
 
 
 
-time = range(startyr,endyr)
-fig, ax = plt.subplots(figsize=(10,4))
-plt.gca().invert_yaxis()
-#fig, ax = plt.subplots(figsize=(15,5))
-#ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
-ax.plot(d18Oc.time,d18Oc,color='black',label='d18Oc')
+    time = range(startyr,endyr)
+    fig, ax = plt.subplots(figsize=(10,4))
+    plt.gca().invert_yaxis()
+    #fig, ax = plt.subplots(figsize=(15,5))
+    #ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
+    ax.plot(d18Oc.time,d18Oc,color='black',label='d18Oc')
 
-ax2=ax.twinx()
-plt.gca().invert_yaxis()
-#ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
-ax2.plot(sss_f.time,sss_f,color='red',label='sst')
-#ax1 = plt.gca()
-#ax1.set_xticks([1980,1990,2000,2010,2020])
-lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
-#plt.ylim(-5.,-4.)
-#plt.xlim(startyr,endyr)
-ax.set_xlabel('Year (CE)')
-ax.set_title('SSS and d18Oc (raw)')
-plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
-'''
+    ax2=ax.twinx()
+    plt.gca().invert_yaxis()
+    #ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
+    ax2.plot(sss_f.time,sss_f,color='red',label='sst')
+    #ax1 = plt.gca()
+    #ax1.set_xticks([1980,1990,2000,2010,2020])
+    lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
+    #plt.ylim(-5.,-4.)
+    #plt.xlim(startyr,endyr)
+    ax.set_xlabel('Year (CE)')
+    ax.set_title('SSS and d18Oc (raw)')
+    plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
 
 
     

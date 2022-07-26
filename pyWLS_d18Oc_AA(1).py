@@ -157,7 +157,7 @@ def detrend_dim(da, dim, deg=1):
 # coralid2 = 'HE18COC02'
 #coralid1 = 'ST13MAL01'    # Storz (2013) - Rasdhoo Atoll, Maldives
 #coralid1 = 'ZI08MAY01'    # Zinke (2008) - Mayotte
-#coralid1 = 'PF19LAR01'    # Pfeiffer (2004) - St. Gilles Reef, La Réunion
+# coralid1 = 'PF19LAR01'    # Pfeiffer (2004) - St. Gilles Reef, La Réunion
 
 # Central Pacific corals
 #coralid1 = 'NU11PAL01'    # Nurhati (2011) - Palmyra (Tier 1)
@@ -180,7 +180,7 @@ if len(sys.argv) > 1:
 else:
     # the Maldives 
     # coralid1 = 'ST13MAL01' 
-
+    # coralid1 = 'PF19LAR01'
     # error sleuthing
     # coralid1 = 'AB08MEN01'
     # coralid1 ='CA13PEL01'
@@ -193,22 +193,26 @@ else:
 
     # this one's fine
     # coralid1 = 'HE18COC01'
-    coralid1 = 'ZI08MAY01'
+    # coralid1 = 'ZI08MAY01'
     # this one gives us "nonetype is not iterable" which means it isn't finding the ID in the data
     # coralid1 = 'CO95TUNG01A'
+    # coralid1 = 'AS05GUA01'
+    # coralid1 = 'OS14RIP01'
+    coralid1 = 'BO14HTI02'
 
     # exit(0)
 
 
 
 # Define analysis interval
-time_step = 'year'
-#time_step = 'bimonthly'
+# time_step = 'year'
+time_step = 'bimonthly'
 
 #dir = '/Users/alyssaatwood/Dropbox/Florida_State/Research/Research_projects/CoralHydro2k/Coral_database/'
 # dir = '/Users/alyssa_atwood/Desktop/Dropbox/Florida_State/Research/Research_projects/CoralHydro2k/Coral_database/'
 dir = ''
-f = h5py.File(dir+'hydro2kv0_5_2.mat','r')
+
+f = h5py.File(dir+'hydro2kv0_5_2(1).mat','r')
 data1 = f.get('ch2k/'+coralid1+'/d18O')
 
 dataset = f.get('ch2k/')
@@ -360,7 +364,8 @@ sster_f = sster_all[:,indlat_sster,indlon_sster]
 # dir = '/Users/alyssa_atwood/Desktop/Dropbox/Obs_datasets/Salinity/HadEN4/'
 dir = ''
 ds = xr.open_dataset(dir+'sss_HadleyEN4.2.1g10_190001-201012.nc',decode_times=True)         # ERSST v5
-# print(ds)
+# print(ds['sss'])
+
 sss_all = ds['sss']
 time_sss_all = ds['time']             # HadEN4: time x lat x lon (time = 1900:2010)
 lat_sss_all = sss_all['lat'].values   # get coordinates from dataset
@@ -485,6 +490,9 @@ sss_f = sss_f.sel(time=slice(t1, t2))
 sster_f = sster_f.sel(time=slice(t1, t2))
 ssser_f = ssser_f.sel(time=slice(t1, t2))
 
+
+
+
 #=============================================================================
 
 # Interpolate all data to SST dates (monthly data)
@@ -565,7 +573,7 @@ sss_bin = sss_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 sster_bin = sster_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 ssser_bin = ssser_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()
 
-print(sst_bin)
+# print(sst_bin)
 
 #=============================================================================
 # Average data and propogate errors over the tropical year (Apr 1-Mar 31)
@@ -643,6 +651,23 @@ if time_step == 'year':
        count = count + 1
     # print(d18Oc_final)
 
+
+    # mask to remove all nans through every array according to joint condition 
+    nan_mask = [~np.isnan(sss_final) & ~np.isnan(sst_final) & ~np.isnan(d18Oc_final)
+    & ~np.isnan(ssser_final) & ~np.isnan(sster_final) & ~np.isnan(d18Ocerr_final)]
+
+
+    # remove nans before computing composite variable 
+    d18Oc_final = d18Oc_final[tuple(nan_mask)]
+    sst_final = sst_final[tuple(nan_mask)]
+    sster_final = sster_final[tuple(nan_mask)]
+    d18Ocerr_final = d18Ocerr_final[tuple(nan_mask)]
+    sss_final = sss_final[tuple(nan_mask)]
+    ssser_final = ssser_final[tuple(nan_mask)]
+    d18O_plus_SST =  d18O_plus_SST_err[tuple(nan_mask)]
+    d18O_plus_SST_err =  d18O_plus_SST_err[tuple(nan_mask)]
+    yr_sssfinal = yr_sssfinal[tuple(nan_mask)]
+
     for i in range(len(sss_final)):
         d18O_plus_SST[i] = d18Oc_final[i] + 0.21*sst_final[i]
         d18O_plus_SST_err[i] = d18Ocerr_final[i] + 0.21*0.21*sster_final[i]+2*0.21*np.cov(d18Oc_final,sst_final)[0][1]
@@ -659,6 +684,25 @@ else:
     yr_d18Ocfinal = d18Oc_final.time_bins
     yr_sstfinal = sst_final.time_bins
     yr_sssfinal = sss_final.time_bins
+
+    d18O_plus_SST = np.empty(len(d18Oc_final), dtype = float )
+    d18O_plus_SST_err  = np.empty(len(d18Oc_final), dtype = float )
+
+    # mask to remove all nans through every array according to joint condition 
+    nan_mask = [~np.isnan(sss_final) & ~np.isnan(sst_final) & ~np.isnan(d18Oc_final)
+    & ~np.isnan(ssser_final) & ~np.isnan(sster_final) & ~np.isnan(d18Ocerr_final)]
+
+
+    # remove nans before computing composite variable 
+    d18Oc_final = d18Oc_final[tuple(nan_mask)]
+    sst_final = sst_final[tuple(nan_mask)]
+    sster_final = sster_final[tuple(nan_mask)]
+    d18Ocerr_final = d18Ocerr_final[tuple(nan_mask)]
+    sss_final = sss_final[tuple(nan_mask)]
+    ssser_final = ssser_final[tuple(nan_mask)]
+    d18O_plus_SST =  d18O_plus_SST_err[tuple(nan_mask)]
+    d18O_plus_SST_err =  d18O_plus_SST_err[tuple(nan_mask)]
+    yr_sssfinal = yr_sssfinal[tuple(nan_mask)]
 
     for i in range(len(sss_final)):
         d18O_plus_SST[i] = d18Oc_final[i] + 0.21*sst_final[i]
@@ -695,19 +739,19 @@ if time_step == 'year':
 else:
     nt = len(d18Oc_final)
     
-Y = np.zeros((nt,1))
-Y[:,0] = d18Oc_final    # d18Oc yearly values 
+# Y = np.zeros((nt,1))
+# Y[:,0] = d18Oc_final    # d18Oc yearly values 
 
-varY = np.zeros((nt,1))         
-varY[:,0] = np.square(d18Ocerr_final)         # (d18Oc errors)^2
+# varY = np.zeros((nt,1))         
+# varY[:,0] = np.square(d18Ocerr_final)         # (d18Oc errors)^2
 
-X = np.zeros((nt,2))
-X[:,0] = sst_final
-X[:,1] = sss_final
+# X = np.zeros((nt,2))
+# X[:,0] = sst_final
+# X[:,1] = sss_final
 
-varX = np.zeros((nt,2))
-varX[:,0] = np.square(sster_final)
-varX[:,1] = np.square(ssser_final)
+# varX = np.zeros((nt,2))
+# varX[:,0] = np.square(sster_final)
+# varX[:,1] = np.square(ssser_final)
 
 # Matt's original code
 #Y = d[['dOa']].values                   # d18Oc yearly values
@@ -749,13 +793,13 @@ varX[:,1] = np.square(ssser_final)
 #============================================================================
 
 # Regress d18Oc onto SSS
-[a1, b1, S1, cov_matrix1] = bivariate_fit(sss_final, d18Oc_final, ssser_final, d18Ocerr_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [d18Oc]
+# [a1, b1, S1, cov_matrix1] = bivariate_fit(sss_final, d18Oc_final, ssser_final, d18Ocerr_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [d18Oc]
 
 # Regress d18Oc onto SST
-[a2, b2, S2, cov_matrix2] = bivariate_fit(sst_final, d18Oc_final, sster_final, d18Ocerr_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SST], Y = [d18Oc]
+# [a2, b2, S2, cov_matrix2] = bivariate_fit(sst_final, d18Oc_final, sster_final, d18Ocerr_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SST], Y = [d18Oc]
 
 # Regress SST onto SSS
-[a3, b3, S3, cov_matrix3] = bivariate_fit(sss_final, sst_final, ssser_final, sster_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
+# [a3, b3, S3, cov_matrix3] = bivariate_fit(sss_final, sst_final, ssser_final, sster_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
 
 # Regress d18Oc onto (-0.21*SST + SSS)
 #[a4, b4, S4, cov_matrix4] = bivariate_fit(-0.21*sst_final+sss_final, d18Oc_final, ssser_final, d18Ocerr_final, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [d18Oc]
@@ -764,11 +808,16 @@ varX[:,1] = np.square(ssser_final)
 # Regression Plots
 #============================================================================
 
+PRINT_STUFF = True
+print(bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6))   # here X =[SSS], Y = [SST])
 [a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6)   # here X =[SSS], Y = [SST]
 
-PRINT_STUFF = True
 
+(r4m,p4m) = stats.pearsonr(sss_final, d18O_plus_SST) # (Pearson's correlation coefficient: scipy.stats.pearsonr(x,y)) 
 print(b4)
+print(r4m)
+print(p4m)
+
 
 if PRINT_STUFF == True: 
     print("coral dataset: ")
@@ -787,6 +836,7 @@ if PRINT_STUFF == True:
     print(sst_bin)
 
     print("SSS pipeline: ")
+    print(sss_all)
     print(sss_f)
     print(sss_dt)
     print(sss_bin)
@@ -822,7 +872,7 @@ if PRINT_STUFF == True:
     print(d18Oc_bin)
   
 
-MAKE_PLOTS = True
+MAKE_PLOTS = False
 
 if MAKE_PLOTS: 
     plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
@@ -836,7 +886,7 @@ if MAKE_PLOTS:
     plt.plot(yr_sssfinal, sss_final, 'o', label = 'Time series: SSS')
     plt.show()
 
-
+'''
 figure, axis = plt.subplots(1, 2)
 
 
@@ -858,7 +908,9 @@ axis[1].legend(fontsize=8)
 plt.show()
 
 
-'''
+
+
+
 # Initialise the subplot function using number of rows and columns
 figure, axis = plt.subplots(1, 2)
 
@@ -912,7 +964,7 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SST and d18Oc (raw)')
-plt.savefig(coralid1+'_sst_ts_raw.pdf', bbox_inches='tight')
+# plt.savefig(coralid1+'_sst_ts_raw.pdf', bbox_inches='tight')
 plt.show()
 
 #============================================================================
@@ -936,7 +988,7 @@ lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
 #plt.xlim(startyr,endyr)
 ax.set_xlabel('Year (CE)')
 ax.set_title('SSS and d18Oc (raw)')
-plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
+# plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
 plt.show()
 
 #============================================================================

@@ -22,16 +22,17 @@ lon_min = min(lon) - margin
 lon_max = max(lon) + margin
 
 # create map using BASEMAP
-m = Basemap(llcrnrlon=lon_min,
-            llcrnrlat=lat_min,
-            urcrnrlon=lon_max,
-            urcrnrlat=lat_max,
+m = Basemap(llcrnrlon=-180,
+            llcrnrlat=-86,
+            urcrnrlon=180,
+            urcrnrlat=86,
             lat_0=(lat_max - lat_min)/2,
             lon_0=(lon_max-lon_min)/2,
             projection='merc',
             resolution = 'h',
             area_thresh=10000.,
             )
+
 m.drawcoastlines()
 m.drawcountries()
 m.drawstates()
