@@ -234,8 +234,8 @@ CO03CHBA01A
 
 
 # Define analysis interval
-# time_step = 'year'
-time_step = 'bimonthly'
+time_step = 'year'
+# time_step = 'bimonthly'
 
 #============================================================================
 # Read in coral d18O data
@@ -281,11 +281,12 @@ else:
     # coralid1 = 'NU09CHR01'    # Nurhati (2009) - Christmas Island (Tier 2)
     # coralid1 = 'AS05GUA01'
     # coralid1 = 'MO20KOI01'
-    coralid1 = 'OS14UCP01'
+    coralid1 = 'SM06LKF01'
 
     # exit(0)
 
 data1 = f.get('ch2k/'+coralid1+'/d18O')
+
 # print(data1[0])
 
 # clean nan's --  
@@ -878,7 +879,7 @@ if PRINT_STUFF:
 # print("what is this returning?")
 # print(bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6)[0])   # here X =[SSS], Y = [SST])
 if time_step == 'bimonthly':
-    [a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final.values, d18O_plus_SST, ssser_final.values, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6) # here X =[SSS], Y = [SST]
+    [a4, b4, S4, cov_matrix4] = bivariate_fit(np.unique(sss_final.values), np.unique(d18O_plus_SST), np.unique(ssser_final.values), np.unique(d18O_plus_SST_err), ri=0.0, b0=1.0, maxIter=1e6) # here X =[SSS], Y = [SST]
 else:
      [a4, b4, S4, cov_matrix4] = bivariate_fit(sss_final, d18O_plus_SST, ssser_final, d18O_plus_SST_err, ri=0.0, b0=1.0, maxIter=1e6) # here X =[SSS], Y = [SST]
 
@@ -887,23 +888,39 @@ else:
 # print(ssser_final)
 # print(d18O_plus_SST_err)
 
+
 (r4m,p4m) = stats.pearsonr(sss_final, d18O_plus_SST) # (Pearson's correlation coefficient: scipy.stats.pearsonr(x,y)) 
 print(b4)
 print(r4m)
 print(p4m)
+
 sss_sst_covariance = np.cov(sss_final,sst_final)[0][1]
 print(sss_sst_covariance)
-mean_sss = np.mean(sss_final.values)
-print(mean_sss)
-std_sss = np.std(sss_final.values)
-print(std_sss)
-std_ratio = np.std(sss_final.values) / np.std(sst_final.values)
-print(std_ratio)
 
+if time_step == 'bimonthly':
+    mean_sss = np.mean(sss_final.values)
+    print(mean_sss)
+    std_sss = np.std(sss_final.values)
+    print(std_sss)
+    std_ratio = np.std(sss_final.values) / np.std(sst_final.values)
+    print(std_ratio)
+else:
+    mean_sss = np.mean(sss_final)
+    print(mean_sss)
+    std_sss = np.std(sss_final)
+    print(std_sss)
+    std_ratio = np.std(sss_final) / np.std(sst_final)
+    print(std_ratio)
+
+
+print(S4) # built-in goodness of fit metric 
+
+
+# only plot the a2 regression, along with a single salinity time series and a single coral time series (commented out for now)
 A2_PLOTS = False
 if A2_PLOTS:
-    plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
-
+    plt.plot(sss_final, d18O_plus_SST, 'o', label = 'd18Oc plus SST - data', color='k')
+    plt.title(coralid1)
     plt.plot(sss_final, a4 + b4*sss_final, 'r', label="δ18Oc + 0.21*SST = {0:.3f}*SSS + {1:.2f}".format(b4, a4))
     plt.xlabel('SSS (%)')
     plt.ylabel('Coral $\delta^{18}$O ($\perthousand$) + 0.21*SST')
@@ -911,28 +928,28 @@ if A2_PLOTS:
     plt.text(50, 10, 'R^2 = {0:.2f}'.format(r4m*r4m), horizontalalignment='center',verticalalignment='center') #transform=ax.transAxes: indicates that the coordinates are given relative to the axes bounding box, with (0, 0) being the lower left of the axes and (1, 1) the upper right. 
     plt.show()
 
-    plt.savefig(coralid1 + '_a2_regression.jpg')
+    # plt.savefig(coralid1 + '_a2_regression.jpg')
 
-    time = range(startyr,endyr)
-    fig, ax = plt.subplots(figsize=(10,4))
-    plt.gca().invert_yaxis()
-    #fig, ax = plt.subplots(figsize=(15,5))
-    #ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
-    ax.plot(yr_d18Ocfinal,d18Oc_final,color='black',label='d18Oc')
+    # time = range(startyr,endyr)
+#     fig, ax = plt.subplots(figsize=(10,4))
+#     plt.gca().invert_yaxis()
+#     fig, ax = plt.subplots(figsize=(15,5))
+#     ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
+#     ax.plot(yr_d18Ocfinal,d18Oc_final,color='black',label='d18Oc')# 
 
-    ax2=ax.twinx()
-    plt.gca().invert_yaxis()
-    #ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
-    ax2.plot(yr_sssfinal,sss_final,color='red',label='sss')
-    #ax1 = plt.gca()
-    #ax1.set_xticks([1980,1990,2000,2010,2020])
-    lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
-    #ax2.set_ylim(26,28)
-    #plt.xlim(startyr,endyr)
-    ax.set_xlabel('Year (CE)')
-    ax.set_title('SSS and d18Oc (trop year avg)')
-    plt.savefig(coralid1+'_sssyr_ts.jpg', bbox_inches='tight')
-
+#     ax2=ax.twinx()
+#     plt.gca().invert_yaxis()
+#     ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
+#     ax2.plot(yr_sssfinal,sss_final,color='red',label='sss')
+#     ax1 = plt.gca()
+#     ax1.set_xticks([1980,1990,2000,2010,2020])
+#     lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
+#     ax2.set_ylim(26,28)
+#     plt.xlim(startyr,endyr)
+#     # ax.set_xlabel('Year (CE)')
+#     # ax.set_title('SSS and d18Oc (trop year avg)')
+#     # plt.savefig(coralid1+'_sssyr_ts.jpg', bbox_inches='tight')
+#     plt.show()
 
 
     time = range(startyr,endyr)
@@ -942,10 +959,10 @@ if A2_PLOTS:
     #ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
     ax.plot(d18Oc.time,d18Oc,color='black',label='d18Oc')
 
-    ax2=ax.twinx()
+    # ax2=ax.twinx()
     plt.gca().invert_yaxis()
-    #ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
-    ax2.plot(sss_f.time,sss_f,color='red',label='sst')
+    ax.plot(sst_f.time,sst_f,color='red',label='sst')
+    ax.plot(sss_f.time,sss_f,color='blue',label='sss')
     #ax1 = plt.gca()
     #ax1.set_xticks([1980,1990,2000,2010,2020])
     lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
@@ -953,14 +970,16 @@ if A2_PLOTS:
     #plt.xlim(startyr,endyr)
     ax.set_xlabel('Year (CE)')
     ax.set_title('SSS and d18Oc (raw)')
-    plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
+    # plt.savefig(coralid1+'_sss_ts_raw.pdf', bbox_inches='tight')
+    plt.show()
 
+# rest of the plots-- time series, etc 
 
-    
 MAKE_PLOTS = False
 
+
 if MAKE_PLOTS: 
-    plt.plot(sss_final, d18O_plus_SST, 'o', label = 'original data', color='k')
+    plt.plot(sss_final, d18O_plus_SST, 'o', label = 'd18Oc plus SST - data', color='k')
 
     plt.plot(sss_final, a4 + b4*sss_final, 'r', label="δ18Oc + 0.21*SST = {0:.3f}*SSS + {1:.2f}".format(b4, a4))
     plt.xlabel('SSS (%)')
@@ -969,10 +988,10 @@ if MAKE_PLOTS:
     (r4m,p4m) = stats.pearsonr(sss_final, d18O_plus_SST) # (Pearson's correlation coefficient: scipy.stats.pearsonr(x,y)) 
     plt.text(0.5, 0.8, 'R^2 = {0:.2f}'.format(r4m*r4m), horizontalalignment='center',verticalalignment='center') #transform=ax.transAxes: indicates that the coordinates are given relative to the axes bounding box, with (0, 0) being the lower left of the axes and (1, 1) the upper right. 
     plt.show()
-    # plt.plot(yr_sssfinal, sss_final, 'o', label = 'Time series: SSS')
-    # plt.show()
 
-    '''
+    plt.plot(yr_sssfinal, sss_final, 'o', label = 'Time series: SSS')
+    plt.show()
+
     #============================================================================
     # Time Series Plots
     #============================================================================
@@ -983,21 +1002,21 @@ if MAKE_PLOTS:
     time = range(startyr,endyr)
     fig, ax = plt.subplots(figsize=(10,4))
     plt.gca().invert_yaxis()
-    #fig, ax = plt.subplots(figsize=(15,5))
-    #ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
+    # fig, ax = plt.subplots(figsize=(15,5))
+    # ax.plot(d18Oc_interp.time,d18Oc_interp,color='black',label='d18Oc')
     ax.plot(d18Oc.time,d18Oc,color='black',label='d18Oc')
 
     ax2=ax.twinx()
-    #ax2.plot(sst_final.time,sst_final,color='blue',label='sst')
     ax2.plot(sst_f.time,sst_f,color='blue',label='sst')
-    #ax1 = plt.gca()
-    #ax1.set_xticks([1980,1990,2000,2010,2020])
+    # ax2.plot(sst_f.time,sst_f,color='blue',label='sst')
+    # ax1 = plt.gca()
+    # ax1.set_xticks([1980,1990,2000,2010,2020])
     lgd = plt.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
-    #plt.ylim(-5.,-4.)
-    #plt.xlim(startyr,endyr)
+    # plt.ylim(-5.,-4.)
+    # plt.xlim(startyr,endyr)
     ax.set_xlabel('Year (CE)')
     ax.set_title('SST and d18Oc (raw)')
-    plt.savefig(coralid1+'_sst_ts_raw.pdf', bbox_inches='tight')
+    # plt.savefig(coralid1+'_sst_ts_raw.pdf', bbox_inches='tight')
     plt.show()
 
     #============================================================================
@@ -1171,7 +1190,6 @@ if MAKE_PLOTS:
     plt.legend()
     plt.savefig(coralid1+'_trend_sss.pdf', bbox_inches='tight')
     plt.show()
-    '''
 
 """
 Current issues: 
