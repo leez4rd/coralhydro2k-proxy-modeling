@@ -6,25 +6,18 @@ import h5py
 import os 
 import subprocess 
 import seaborn as sns 
+import xarray as xr 
+import pandas as pd 
 
 # filter by coral species and site_type
+dataframe = pd.read_csv('Database_Metadata_CH2k - Sheet1.csv')
+# subset = dataframe['Core ID' == recordID]
+# subset = np.where(subset['Species'].str.contains(pat = '[pP]orites'), regex = True)
+# if recordID in list(subset['Core ID'])... (only loop if Porites)
 
-# creating map to plot data on 
-m = Basemap(projection='merc',llcrnrlat=-80,urcrnrlat=80,llcrnrlon=-180,urcrnrlon=180,lat_ts=20,resolution='c')
+# analogous code for site type?
 
 
-m = Basemap(llcrnrlon=-180,
-            llcrnrlat=-75,
-            urcrnrlon=180,
-            urcrnrlat=75,
-            lat_0=0,
-            lon_0=180,
-            projection='merc',
-            resolution = 'h',
-            area_thresh=10000.,
-            )
-
-# m.drawcoastlines()
 # m.fillcontinents(color = 'white',lake_color='#46bcec')
 
 
@@ -42,16 +35,17 @@ mean_sss_all = []
 std_sss_all = []
 all_covariances = []
 std_ratios = []
+GOFs = []
 data_dict = {}
 
 
 stop_early_count = 0 
 for recordID in coralnames:
-	if stop_early_count == 10:
+	if stop_early_count == -30:
 		break
 	stop_early_count += 1
 
-	# eventually need to make the calculation of a2 its own function with recordID as a parameter
+	# eventually need to make the calculation of a2 its owsn function with recordID as a parameter
 	# right now it just interfaces with command line to call the script and keeps chugging if there are errors
 
 	print("Current ID:")
@@ -82,6 +76,7 @@ for recordID in coralnames:
 		mean_sss = float(split_results[4])
 		sss_std = float(split_results[5])
 		std_ratio = float(split_results[6])
+		goodness_of_fit = float(split_results[7])
 		a2 = float(a2_string[2:len(a2_string)])
 
 
@@ -121,8 +116,11 @@ for recordID in coralnames:
 			std_sss_all += [sss_std]
 			all_covariances += [covariance]
 			std_ratios += [std_ratio]
+			GOFs += [goodness_of_fit]
 			print(mean_sss_all)
 			print(all_covariances)
+			print("COVARIANCE IS ")
+			print(covariance)
 
 		# random thoughts
 		# if this returns an array, do we average them? 
@@ -144,27 +142,63 @@ for recordID in coralnames:
 
 a2s = np.array(a2s)
 
-'''
-sns.scatterplot(mean_sss_all, a2s, size = dotsizes, legend = "brief")
-plt.xlabel("Mean SSS")
-plt.ylabel("a2")
-plt.savefig('a2s_and_mean_SSS.jpg')
-sns.scatterplot(std_sss_all, a2s, size = dotsizes, legend = "brief")
-plt.xlabel("Standard Deviation of SSS")
-plt.ylabel("a2")
-plt.savefig('a2s_and_SSS_SD.jpg')
-sns.scatterplot(all_covariances, a2s, size = dotsizes, legend = "brief")
-plt.xlabel("Covariance of SSS and SST")
-plt.ylabel("a2")
-plt.savefig('a2s_and_covariance.jpg')
+fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 
-sns.scatterplot(std_ratios, a2s, size = dotsizes, legend = "brief")
-plt.xlabel("ratio of SD's of SSS, SST")
-plt.ylabel("a2")
-plt.savefig('a2s_and_SD_ratio.jpg')
-'''
+# some scatterplots
+# plt.figure()
+sns.scatterplot(mean_sss_all, a2s, size = dotsizes, legend = "brief", ax = ax1)
+ax1.set_xlabel("Mean SSS")
+ax1.set_ylabel("a2")
+# ax1.savefig('a2s_and_mean_SSS.jpg')
+# plt.figure()
+sns.scatterplot(std_sss_all, a2s, size = dotsizes, legend = "brief", ax = ax2)
+ax2.set_xlabel("Standard Deviation of SSS")
+ax2.set_ylabel("a2")
+# ax2.savefig('a2s_and_SSS_SD.jpg')
+# plt.figure()
+sns.scatterplot(all_covariances, a2s, size = dotsizes, legend = "brief", ax = ax3)
+ax3.set_xlabel("Covariance of SSS and SST")
+ax3.set_ylabel("a2")
+# ax3.savefig('a2s_and_covariance.jpg')
+# plt.figure()
+sns.scatterplot(std_ratios, a2s, size = dotsizes, legend = "brief", ax = ax4)
+ax4.set_xlabel("ratio of SD's of SSS, SST")
+ax4.set_ylabel("a2")
+# ax4.savefig('a2s_and_SD_ratio.jpg')
+plt.show()
 
-a2_plot = m.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -3, vmax = 3 , cmap = "coolwarm", latlon = True)
+plt.figure()
+
+# creating map to plot data on 
+m = Basemap(projection='merc',llcrnrlat=-80,urcrnrlat=80,llcrnrlon=-180,urcrnrlon=180,lat_ts=20,resolution='c')
+
+
+m = Basemap(llcrnrlon=-180,
+            llcrnrlat=-75,
+            urcrnrlon=180,
+            urcrnrlat=75,
+            lat_0=0,
+            lon_0=180,
+            projection='merc',
+            resolution = 'h',
+            area_thresh=10000.,
+            )
+
+m.drawcoastlines()
+
+
+try:
+	parallels = np.arange(0.,81,10.)
+	# labels = [left,right,top,bottom]
+	m.drawparallels(parallels,labels=[False,True,True,False])
+	meridians = np.arange(10.,351.,20.)
+	m.drawmeridians(meridians,labels=[True,False,False,True])
+except:
+	print("error drawing parallels and meridians")
+	pass
+
+
+a2_plot = m.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -0.5, vmax = 2, cmap = "gnuplot", latlon = True, zorder = 2)
 plt.colorbar(a2_plot)
 
 
@@ -175,27 +209,168 @@ plt.colorbar(a2_plot)
 lons = np.asarray(lons)
 lats = np.asarray(lats)
 
-lats, lons = m(lons, lats)
-print(lats)
-print(lons)
+# lats, lons = m(lons, lats)
 
-print("st")
-print(np.max(lons))
-color_matrix = np.empty([int(np.max(lons)) + 1, int(np.max(lats)) + 1])
-print(lons)
-print(lats)
-for i in range(len(lats)):
- 	color_matrix[int(lons[i]), int(lats[i])] = all_covariances[i]
 
-print(color_matrix)
+
+'''
+# this only plots covariances where our coral records are located 
+# looks kinda bad 
+color_matrix = np.empty([len(lons), len(lats)])
+for i in range(len(lons)):
+	for j in range(len(lats)):
+		if i == j:
+			color_matrix[i, i] = all_covariances[i]
+		else:
+			color_matrix[i, j] = 0
+
+
 
 longitudes, latitudes = np.meshgrid(lons, lats)
-
-print(longitudes)
 print(latitudes)
-
+print("test")
+print(color_matrix)
+print(lons)
 m.pcolormesh(lons, lats, color_matrix,
+             latlon=True, cmap='coolwarm', zorder = 1, vmin = -0.05, vmax = 0.05)
+
+'''
+
+
+plt.show()
+
+
+"""
+read in SST data and format for pcolormesh 
+
+"""
+
+ds = xr.open_dataset('sst_mnmean_noaa_ersstv5.nc',decode_times=True)         # ERSST v5
+# ds = ds.sel(time=slice("2000-01-01", "2000-01-02"))
+print(ds)
+
+# ds['sst'].plot(cmap='jet', vmax=0.02)
+# plt.show()
+
+
+
+lat = ds['lat'][:]
+lon = ds['lon'][:]
+lon, lat = np.meshgrid(lon, lat)
+
+print(lon)
+print(lat)
+
+sst = ds['sst'].values
+sst_all = ds['sst']
+
+""" read in SSS data """ 
+ds = xr.open_dataset('sss_HadleyEN4.2.1g10_190001-201012.nc',decode_times=True)         # ERSST v5
+
+# ds = ds.interpolate_na(dim = "lat", method = "linear", fill_value = "extrapolate")
+
+# UNCOMMENTED THIS LINE 
+# ds = ds.dropna(dim = "lat", how = "any") # -- dropping nans caused major inconsistencies in data for some reason 
+# if this causes problems elsewhere, we can do it conditionally or with try / except 
+
+sss_all = ds['sss']
+
+
+time_sss_all = ds['time']             # HadEN4: time x lat x lon (time = 1900:2010)
+lat_sss_all = sss_all['lat'].values   # get coordinates from dataset
+lon_sss_all = sss_all['lon'].values
+
+
+
+""" read in error data """
+ds = xr.open_dataset('sss_HadleyEN4.2.1g10_190001-202012_salinityerrorSD.nc',decode_times=True)         # ERSST v5
+
+# ds = ds.dropna(dim = "LAT", how = "any") # not exactly sure why we are dropping along this dimension but im not questioning it yet
+
+ssser_all = ds['SALT_ERR_STD']
+time_ssser_all = ds['TIME']               # HadEN4 error: time x 1 x lat x lon (time = 1900:2020)
+lat_ssser_all = ssser_all['LAT'].values   # get coordinates from dataset
+lon_ssser_all = ssser_all['LONN180_180'].values
+
+
+# Get rid of singleton depth dimension - Create new DataArray object by specifying coordinates and dimension names (xarray) from numpy array
+
+ssser_all = xr.DataArray(ssser_all[:,0,:,:], coords=[time_ssser_all,lat_ssser_all,lon_ssser_all], dims=["time","lat","lon"])
+
+# ssser_all = xr.DataArray(ssser_all, coords=[time_ssser_all,lat_ssser_all,lon_ssser_all], dims=["time","lat","lon"])
+
+ds = xr.open_dataset('ersstev5_uncertainty.nc',decode_times=True)         # ERSST v5
+# Change longitude array from 0:360 to -180:180
+lon_name = 'longitude'  # whatever name is in the data
+# Adjust lon values to make sure they are within (-180, 180)
+ds['_longitude_adjusted'] = xr.where(ds[lon_name] > 180, ds[lon_name] - 360, ds[lon_name])
+# reassign the new coords to as the main lon coords and sort DataArray using new coordinate values
+ds = (
+    ds
+    .swap_dims({lon_name: '_longitude_adjusted'})
+    .sel(**{'_longitude_adjusted': sorted(ds._longitude_adjusted)})
+    .drop(lon_name))
+ds = ds.rename({'_longitude_adjusted': lon_name})
+# ds = ds.dropna(dim = "latitude", how = "any")
+
+sster_all = ds['ut']
+time_sster_all = ds['time']             # ERSSTv5: time (1/1854-12/2020; units = "days since 1800-1-1 00:00:00")
+lat_sster_all = sster_all['latitude'].values   # get coordinates from dataset
+lon_sster_all = sster_all['longitude'].values
+
+
+
+
+
+
+
+
+
+
+longitudes = []
+latitudes = []
+sst_fs = []
+cov_fs = []
+sdratio_fs = []
+
+for latitude in range(-80, 80):
+	for longitude in range(-180, 180):
+		longitudes.append(longitude)
+		latitudes.append(latitude)
+		# get salinity and temperature at this latitude and longitude 
+		sst_f = sst_all[:,latitude,longitude]
+		sss_f = sss_all[:,latitude,longitude]
+		# sst_fs.append(sst_f)
+
+		# get errors at this latitude and longitude 
+		ssser_f = sss_all[:, latitude, longitude]
+		sster_f = sst_all[:, latitude, longitude]
+
+
+		# note: need to slice to same time period, this is just a proof of concept to see if we can map successfully
+		# calculate covariance, correlation 
+		this_covariance = np.cov(sst_f.values[0:1000], sss_f.values[0:1000])[0][1]
+		cov_fs += [(this_covariance)]
+		cov_fs = np.asarray(cov_fs)
+		# corr = np.corrcoef(sst_f, sss_f)
+		# coverr = np.cov(sster_f, ssser_f)
+		# correrr = np.corrcoef(sster_f, ssser_f)
+		# calculate the ratio of the SD's of the errors 
+		# sd_sst = np.std(sst_f)
+		# sd_sss = np.std(sss_f)
+
+
+		# additional statistical features...
+
+
+# sst_fs = np.asarray(sst_fs)
+
+# longitudes, latitudes = np.meshgrid(longitudes, latitudes)
+
+m.pcolormesh(np.asarray(longitudes), np.asarray(latitudes), cov_fs,
              latlon=True, cmap='coolwarm')
+
+
 plt.show()
 
 print("latitudes")
