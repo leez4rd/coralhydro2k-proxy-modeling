@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 from numpy import linalg as LA
 from scipy.linalg import fractional_matrix_power 
-from plotnine import *
+# from plotnine import *
 import h5py                  # for reading in .mat files
 from netCDF4 import Dataset  # for reading netcdf file
 from datetime import date, datetime, timedelta   # to convert "days since XXX" to date
@@ -35,7 +35,7 @@ PRINT_STUFF = False
 def average_xarrays(*arrays):
     avg = 0
     for array in arrays:
-        print(array)
+        # print(array)
         avg += (array['time'].data)
 
 
@@ -211,7 +211,7 @@ CO03CHBA01A
 
 # *** Reference coral ID's *** # 
 
-# Indian Ocean corals
+# Indian Ocean coras
 #coralid1 = 'HE18COC01'    # Hennekam (2018) - Cocos (Keeling) Islands
 #coralid2 = 'HE18COC02'
 #coralid1 = 'ST13MAL01'    # Storz (2013) - Rasdhoo Atoll, Maldives
@@ -229,7 +229,7 @@ CO03CHBA01A
 #coralid1 = 'ST13MAL01'    # Storz (2013) - Maldives
 #coralid1 = 'CA14TIM01'    # Cayharini (2014) - Timor, Indonesia
 
-
+coralid1 = 'SM06LKF01'
 
 
 
@@ -349,8 +349,14 @@ timec = d18Oc.time
 
 latc = f.get('ch2k/'+coralid1+'/lat')
 lonc = f.get('ch2k/'+coralid1+'/lon')  # lon = -180:180
+
+
 latc = np.array(latc)                 # Convert to NumPy array
 lonc = np.array(lonc)                 # Convert to NumPy array
+
+lonc = lonc + 180
+
+
 ##printt(latc, lonc)
 
 #============================================================================
@@ -386,6 +392,8 @@ lon_sst_all = sst_all['lon'].values   # lon = 0:360
 # get indices and sst data at closest grid point to coral
 (indlat_sst, latval_sst) = find_nearest(lat_sst_all, latc)
 (indlon_sst, lonval_sst) = find_nearest(lon_sst_all, lonc)
+
+
 # (indtime_sst, timeval_sst) = find_nearest(time_sst_all , timec[0])   # coral data steps on midpoints, sst data steps on first day of month... find closest time in sst data set to start of coral data
 sst_f = sst_all[:,indlat_sst,indlon_sst]
 # print(sst_f.values)
@@ -445,6 +453,8 @@ lon_sss_all = sss_all['lon'].values
 # Get indices and sst data at closest grid point to coral
 (indlat_sss, latval_sss) = find_nearest(lat_sss_all, latc)
 (indlon_sss, lonval_sss) = find_nearest(lon_sss_all, lonc)
+
+
 
 sss_f = sss_all[:,indlat_sss,indlon_sss]
 
@@ -523,6 +533,8 @@ sss_f = sss_f.sel(time=slice(t1, t2))
 sster_f = sster_f.sel(time=slice(t1, t2))
 ssser_f = ssser_f.sel(time=slice(t1, t2))
 
+
+print(sss_f.values)
 #=============================================================================
 
 # Interpolate all data to SST dates (monthly data)
@@ -558,6 +570,8 @@ d18O_res = stats.linregress(time_d18Oc, d18Oc)
 sst_res = stats.linregress(time_sst, sst_f)
 sss_res = stats.linregress(time_sss, sss_f)
 
+
+
 d18Oc_dt1 = d18Oc-d18O_res.slope*time_d18Oc
 sst_dt1 = sst_f-sst_res.slope*time_sst
 sss_dt1 = sss_f-sss_res.slope*time_sss
@@ -566,6 +580,7 @@ sster_dt1 = sster_f                    # Don't detrend the errors (confirmed wit
 ssser_dt1 = ssser_f                    # Don't detrend the errors 
 
 # Convert back to DataArrays (detrend converts to numpy array)
+
 
 d18Oc_dt = xr.DataArray(d18Oc_dt1, coords=[d18Oc.time], dims=["time"])
 sst_dt = xr.DataArray(sst_dt1, coords=[sst_f.time], dims=["time"])
@@ -582,8 +597,15 @@ lb = lb[0:-1]
 # need to remove duplicates for interpolation 
 # d18Oc_dt = d18Oc_dt.dropna(dim = "time", how = "any") # maybe there was a nan that slipped through that's messing up the mean?
 # d18Oc_dt = d18Oc_dt.interpolate_na(dim = "time", method = "linear")
+# print("label array: ")
+# print(lb)
 
 lb = lb[~np.isnan(lb)]
+
+# print("label array after nan removal: ")
+# print(lb)
+#  print(type(lb))
+
 sst_dt = sst_dt[~np.isnan(sst_dt)]
 if PRINT_STUFF: 
     print("BEFORE BINNING: ")
@@ -592,6 +614,7 @@ if PRINT_STUFF:
 
 # why does binnning generate nan's even when interpolating? 
 # is it just that there is no data for certain two month periods? 
+
 
 d18Oc_bin = d18Oc_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()   
 sst_bin = sst_dt.groupby_bins('time',bins=sst_dt.time[::2],labels=lb).mean()   
@@ -746,6 +769,12 @@ else:
     
     t1 = dt2.datetime(startyr, 4, 1)     # take time slice of dates in the tropical year (Apr 1-Mar 31)
     t2 = dt2.datetime(endyr, 3, 31)  # t1 = Apr 1, Year 1; t2 = Mar 31, Year 2
+    
+    # print(startyr)
+    # print(endyr)
+   #  print(d18Oc_bin)
+
+
     d18Oc_final = d18Oc_bin.sel(time_bins=slice(t1, t2))
     d18Ocerr_final = np.ones([len(d18Oc_final)], dtype=float)*d18Oc_analerr
     sst_final = sst_bin.sel(time_bins=slice(t1, t2))   
@@ -888,7 +917,7 @@ else:
 # print(ssser_final)
 # print(d18O_plus_SST_err)
 
-
+print()
 (r4m,p4m) = stats.pearsonr(sss_final, d18O_plus_SST) # (Pearson's correlation coefficient: scipy.stats.pearsonr(x,y)) 
 print(b4)
 print(r4m)
