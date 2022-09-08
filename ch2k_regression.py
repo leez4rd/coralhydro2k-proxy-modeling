@@ -534,7 +534,7 @@ sster_f = sster_f.sel(time=slice(t1, t2))
 ssser_f = ssser_f.sel(time=slice(t1, t2))
 
 
-print(sss_f.values)
+# print(sss_f.values)
 #=============================================================================
 
 # Interpolate all data to SST dates (monthly data)
@@ -917,7 +917,7 @@ else:
 # print(ssser_final)
 # print(d18O_plus_SST_err)
 
-print()
+
 (r4m,p4m) = stats.pearsonr(sss_final, d18O_plus_SST) # (Pearson's correlation coefficient: scipy.stats.pearsonr(x,y)) 
 print(b4)
 print(r4m)
