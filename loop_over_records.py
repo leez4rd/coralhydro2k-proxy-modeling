@@ -1,4 +1,5 @@
-from mpl_toolkits.basemap import Basemap
+# from mpl_toolkits.basemap import Basemap
+import cartopy.crs as ccrs 
 import matplotlib.pyplot as plt
 from matplotlib import colors 
 import numpy as np
@@ -8,6 +9,18 @@ import subprocess
 import seaborn as sns 
 import xarray as xr 
 import pandas as pd 
+
+
+fig = plt.figure(figsize=(10, 5))
+ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+
+# make the map global rather than have it zoom in to
+# the extents of any plotted data
+ax.set_global()
+
+ax.stock_img()
+ax.coastlines()
+
 
 # filter by coral species and site_type
 dataframe = pd.read_csv('Database_Metadata_CH2k - Sheet1.csv')
@@ -22,7 +35,7 @@ dataframe = pd.read_csv('Database_Metadata_CH2k - Sheet1.csv')
 
 
 # read in database
-f = h5py.File('hydro2kv0_5_2.mat','r')
+f = h5py.File('hydro2kv0_5_2(1).mat','r')
 dataset = f.get('ch2k/')
 coralnames = list(dataset.keys()) #last key here is 'version'? 
 
@@ -41,7 +54,7 @@ data_dict = {}
 
 stop_early_count = 0 
 for recordID in coralnames:
-	if stop_early_count == -30:
+	if stop_early_count == -10:
 		break
 	stop_early_count += 1
 
@@ -140,6 +153,13 @@ for recordID in coralnames:
 # lats = [x for x,y in lats, copya2 if y != 0] # ignore all cases where a2 was zero (ie script fails)
 # dotsizes  =[x for x in dotsizes if x != 0]
 
+
+a2_plot = ax.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -0.5, vmax = 2, cmap = "gnuplot", transform=ccrs.PlateCarree()) # latlon = True, zorder = 2)
+plt.colorbar(a2_plot)
+
+
+plt.show()
+
 a2s = np.array(a2s)
 
 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
@@ -170,6 +190,7 @@ plt.show()
 plt.figure()
 
 # creating map to plot data on 
+'''
 m = Basemap(projection='merc',llcrnrlat=-80,urcrnrlat=80,llcrnrlon=-180,urcrnrlon=180,lat_ts=20,resolution='c')
 
 
@@ -197,9 +218,8 @@ except:
 	print("error drawing parallels and meridians")
 	pass
 
+'''
 
-a2_plot = m.scatter(lons, lats, c=a2s, s=dotsizes, vmin = -0.5, vmax = 2, cmap = "gnuplot", latlon = True, zorder = 2)
-plt.colorbar(a2_plot)
 
 
 # for color mesh, color variable needs to be 2 dimensionally indexed
@@ -367,7 +387,7 @@ for latitude in range(-80, 80):
 
 # longitudes, latitudes = np.meshgrid(longitudes, latitudes)
 
-m.pcolormesh(np.asarray(longitudes), np.asarray(latitudes), cov_fs,
+ax.pcolormesh(np.asarray(longitudes), np.asarray(latitudes), cov_fs,
              latlon=True, cmap='coolwarm')
 
 
