@@ -11,7 +11,11 @@ import pandas as pd
 import numpy as np
 from numpy import linalg as LA
 from scipy.linalg import fractional_matrix_power 
+<<<<<<< HEAD
+# from plotnine import *
+=======
 from plotnine import *
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
 import h5py                  # for reading in .mat files
 from netCDF4 import Dataset  # for reading netcdf file
 from datetime import date, datetime, timedelta   # to convert "days since XXX" to date
@@ -383,7 +387,11 @@ def detrend_data(sst_f, sss_f, sster_f, ssser_f, d18Oc):
 
 
 # bimonthly binning 
+<<<<<<< HEAD
+def bimonthly_binning(dataset, lb, sst_dt):
+=======
 def bimonthly_binning(dataset, lb):
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
     '''
     d18Oc_bin = d18Oc_f.groupby_bins('time',bins=sst_f.time[::2],labels=lb).mean()   
     sst_bin = sst_f.groupby_bins('time',bins=sst_f.time[::2],labels=lb).mean()   
@@ -398,7 +406,11 @@ def bimonthly_binning(dataset, lb):
 
 
     lb = [x for x in range(len(dataset.time[::2]) - 1)] # temp fix
+<<<<<<< HEAD
+    binned = dataset.groupby_bins('time', bins = sst_dt.time[::2], labels = lb).mean()
+=======
     binned = dataset.groupby_bins('time', bins = dataset.time[::2], labels = lb).mean()
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
     return binned
 
 # again, make sure this is mutating the objects and not creating copies 
@@ -581,7 +593,14 @@ def find_a2(d18Oc_bin, sst_bin, sss_bin, sster_bin, ssser_bin, endyr, coralid = 
         t1 = dt2.datetime(startyr, 4, 1)     # take time slice of dates in the tropical year (Apr 1-Mar 31)
         t2 = dt2.datetime(endyr, 3, 31)  # t1 = Apr 1, Year 1; t2 = Mar 31, Year 2
         
+<<<<<<< HEAD
+        print(startyr)
+        print(endyr)
+        print(d18Oc_bin)
+
+=======
         
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
         d18Oc_final = d18Oc_bin.sel(time_bins=slice(t1, t2))
         
 
@@ -641,7 +660,11 @@ def find_a2(d18Oc_bin, sst_bin, sss_bin, sster_bin, ssser_bin, endyr, coralid = 
 
 def main():
 
+<<<<<<< HEAD
+    lat, lon, d18Oc = read_in_coral_record('SM06LKF01')
+=======
     lat, lon, d18Oc = read_in_coral_record('OS14UCP01')
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
 
 
     SSS_data = read_in_sss(lat, lon)
@@ -652,6 +675,15 @@ def main():
     startyr, endyr = select_common_time_period(d18Oc, SST_data, SSS_data, SST_error_data, SSS_error_data)
     
     lb = detrend_data(SST_data, SSS_data, SST_error_data, SSS_error_data, d18Oc)
+<<<<<<< HEAD
+    sst_dt = SST_data
+
+    d18Oc_bin = bimonthly_binning(d18Oc, lb, sst_dt)  
+    sst_bin = bimonthly_binning(SST_data, lb, sst_dt) 
+    sss_bin = bimonthly_binning(SSS_data, lb, sst_dt)
+    sster_bin = bimonthly_binning(SSS_error_data, lb, sst_dt)
+    ssser_bin =  bimonthly_binning(SST_error_data, lb, sst_dt)
+=======
 
 
     d18Oc_bin = bimonthly_binning(d18Oc, lb)  
@@ -659,6 +691,7 @@ def main():
     sss_bin = bimonthly_binning(SSS_data, lb)
     sster_bin = bimonthly_binning(SSS_error_data, lb)
     ssser_bin =  bimonthly_binning(SST_error_data, lb)
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
 
     
 

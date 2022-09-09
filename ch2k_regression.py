@@ -229,9 +229,12 @@ CO03CHBA01A
 #coralid1 = 'ST13MAL01'    # Storz (2013) - Maldives
 #coralid1 = 'CA14TIM01'    # Cayharini (2014) - Timor, Indonesia
 
+<<<<<<< HEAD
+=======
 coralid1 = 'SM06LKF01'
 
 
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
 
 # Define analysis interval
 time_step = 'year'
@@ -281,7 +284,16 @@ else:
     # coralid1 = 'NU09CHR01'    # Nurhati (2009) - Christmas Island (Tier 2)
     # coralid1 = 'AS05GUA01'
     # coralid1 = 'MO20KOI01'
+<<<<<<< HEAD
+    # coralid1 = 'SM06LKF01'
+
+
     coralid1 = 'SM06LKF01'
+
+
+=======
+    coralid1 = 'SM06LKF01'
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
 
     # exit(0)
 
@@ -337,6 +349,11 @@ else:
 
 # create DataArray object by specifying coordinates and dimension names (xarray) from numpy array
 
+
+nan_mask = np.isnan(d18Oc)        # this is where d18O data ins nan
+d18Oc = d18Oc[~nan_mask]
+timec = timec[~nan_mask]
+
 d18Oc = xr.DataArray(d18Oc, coords=[timec], dims=["time"])
 # d18Oc = d18Oc.dropna(dim='time', how='any', thresh=None)  # drop all nans in array (across 0th dim)
 
@@ -354,8 +371,14 @@ lonc = f.get('ch2k/'+coralid1+'/lon')  # lon = -180:180
 latc = np.array(latc)                 # Convert to NumPy array
 lonc = np.array(lonc)                 # Convert to NumPy array
 
+<<<<<<< HEAD
+for el in lonc:
+    if el < 0:
+        el += 360
+=======
 lonc = lonc + 180
 
+>>>>>>> b7012cfc260c8abe47537585a00e6cca4e76fae9
 
 ##printt(latc, lonc)
 
@@ -492,6 +515,7 @@ ssser_f = ssser_all[:,indlat_ssser,indlon_ssser]
 
 
 
+
 #=============================================================================
 # Select common (i.e., overlapping for all datasets) time period
 #=============================================================================
@@ -558,6 +582,22 @@ ssser_f = ssser_f.sel(time=slice(t1, t2))
 #=============================================================================
 
 # Detrend the SST, SSS, and d18Oc data, but retain the intercept (so just remove the trend but the values aren't centered around 0)
+# print(d18Oc)
+
+# nan_mask = [~np.isnan(sss_final) & ~np.isnan(sst_final) & ~np.isnan(d18Oc_final)
+#     & ~np.isnan(ssser_final) & ~np.isnan(sster_final) & ~np.isnan(d18Ocerr_final)]# 
+# 
+
+# # remove nans before computing composite variable 
+# d18Oc_final = d18Oc_final[tuple(nan_mask)]
+# sst_final = sst_final[tuple(nan_mask)]
+# sster_final = sster_final[tuple(nan_mask)]
+# d18Ocerr_final = d18Ocerr_final[tuple(nan_mask)]
+# sss_final = sss_final[tuple(nan_mask)]
+# ssser_final = ssser_final[tuple(nan_mask)]
+# d18O_plus_SST =  d18O_plus_SST_err[tuple(nan_mask)]
+# d18O_plus_SST_err =  d18O_plus_SST_err[tuple(nan_mask)]
+# yr_sssfinal = yr_sssfinal[tuple(nan_mask)]
 
 
 time_d18Oc = d18Oc.time.dt.year+d18Oc.time.dt.month/12-1/24 - d18Oc.time.dt.year[0]       # subtract the first year so the intercept is defined at start year 
@@ -748,7 +788,7 @@ if time_step == 'year':
     nan_mask = [~np.isnan(sss_final) & ~np.isnan(sst_final) & ~np.isnan(d18Oc_final)
     & ~np.isnan(ssser_final) & ~np.isnan(sster_final) & ~np.isnan(d18Ocerr_final)]
 
-
+    
     # remove nans before computing composite variable 
     d18Oc_final = d18Oc_final[tuple(nan_mask)]
     sst_final = sst_final[tuple(nan_mask)]
@@ -837,6 +877,7 @@ ssser_final = ssser_final[nan_mask]
 
 
 '''
+
 
 
 
